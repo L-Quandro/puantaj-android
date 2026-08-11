@@ -2,8 +2,7 @@ name: Puantaj APK
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -62,8 +61,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 1
-                  versionName '0.1'
+                  versionCode 2
+                  versionName '0.2'
               }
           }
 
@@ -110,18 +109,22 @@ jobs:
           cat > puantaj/app/src/main/java/com/furkan/puantaj/MainActivity.java <<'EOF'
           package com.furkan.puantaj;
 
-          import android.app.Activity;
+          import android.app.*;
           import android.os.Bundle;
-          import android.content.SharedPreferences;
-          import android.view.View;
+          import android.content.*;
+          import android.graphics.Color;
+          import android.view.*;
           import android.widget.*;
-          import java.text.SimpleDateFormat;
+          import java.text.*;
           import java.util.*;
 
           public class MainActivity extends Activity {
               LinearLayout root;
               SharedPreferences prefs;
               ArrayList<String> records = new ArrayList<>();
+
+              String selectedDate = "";
+              String selectedStart = "";
 
               public void onCreate(Bundle b) {
                   super.onCreate(b);
@@ -130,11 +133,20 @@ jobs:
                   home();
               }
 
-              TextView tv(String s, int size) {
+              TextView title(String s) {
                   TextView t = new TextView(this);
                   t.setText(s);
-                  t.setTextSize(size);
-                  t.setPadding(0, 12, 0, 12);
+                  t.setTextSize(27);
+                  t.setTypeface(null, 1);
+                  t.setPadding(0, 0, 0, 18);
+                  return t;
+              }
+
+              TextView info(String s) {
+                  TextView t = new TextView(this);
+                  t.setText(s);
+                  t.setTextSize(16);
+                  t.setPadding(0, 8, 0, 14);
                   return t;
               }
 
@@ -142,6 +154,8 @@ jobs:
                   Button b = new Button(this);
                   b.setText(s);
                   b.setAllCaps(false);
+                  b.setTextSize(16);
+                  b.setPadding(8, 12, 8, 12);
                   return b;
               }
 
@@ -149,23 +163,24 @@ jobs:
                   EditText e = new EditText(this);
                   e.setHint(hint);
                   e.setSingleLine(true);
-                  e.setPadding(0, 12, 0, 12);
+                  e.setTextSize(17);
+                  e.setPadding(0, 8, 0, 8);
                   return e;
               }
 
-              void page(String title) {
+              void page(String s) {
                   ScrollView scroll = new ScrollView(this);
                   root = new LinearLayout(this);
                   root.setOrientation(LinearLayout.VERTICAL);
                   root.setPadding(20, 20, 20, 20);
                   scroll.addView(root);
                   setContentView(scroll);
-                  root.addView(tv(title, 27));
+                  root.addView(title(s));
               }
 
               void home() {
                   page("PUANTAJ");
-                  root.addView(tv("Tren görevi kayıtlarını telefondan yönet.", 16));
+                  root.addView(info("Günlük görev kayıtlarını telefondan yönet."));
 
                   Button n = button("Yeni Görev / Tren Al");
                   root.addView(n);
@@ -179,15 +194,18 @@ jobs:
                   root.addView(m);
                   m.setOnClickListener(v -> monthly());
 
-                  root.addView(tv("Kayıtlar telefonda saklanır. Görev başlatıp uygulamayı kapatabilirsin.", 14));
+                  root.addView(info("Görevi başlatıp uygulamayı tamamen kapatabilirsin. Teslim saatini daha sonra girebilirsin."));
               }
 
               void newRecord() {
                   page("Yeni Görev / Tren Al");
 
-                  EditText date = field("Tarih (GG.AA.YYYY)");
-                  date.setText(new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(new Date()));
-                  root.addView(date);
+                  selectedDate = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(new Date());
+                  selectedStart = "";
+
+                  Button dateButton = button("Tarih: " + selectedDate);
+                  root.addView(dateButton);
+                  dateButton.setOnClickListener(v -> chooseDate(dateButton, false));
 
                   EditText person = field("Kiminle gittin?");
                   root.addView(person);
@@ -195,37 +213,32 @@ jobs:
                   EditText train = field("Tren no");
                   root.addView(train);
 
-                  EditText homeOut = field("Evden çıkış saati (SS:DD)");
-                  root.addView(homeOut);
+                  Button startButton = button("Görev alış / başlangıç saati seç");
+                  root.addView(startButton);
+                  startButton.setOnClickListener(v -> chooseTime(startButton, true));
 
-                  EditText start = field("Görev / tren teslim alma saati (SS:DD)");
-                  root.addView(start);
-
-                  EditText owner = field("Başlangıç teslim/tesellüm sahibi");
-                  root.addView(owner);
-
-                  Button save = button("Kaydet ve Çık");
+                  Button save = button("Görevi Başlat ve Kaydet");
                   root.addView(save);
-
                   save.setOnClickListener(v -> {
+                      if (person.getText().toString().trim().isEmpty() ||
+                          train.getText().toString().trim().isEmpty() ||
+                          selectedStart.isEmpty()) {
+                          Toast.makeText(this, "Kiminle, tren no ve başlangıç saati gerekli.", Toast.LENGTH_LONG).show();
+                          return;
+                      }
+
                       String record =
                               UUID.randomUUID() + "|" +
-                              date.getText() + "|" +
-                              person.getText() + "|" +
-                              train.getText() + "|" +
-                              homeOut.getText() + "|" +
-                              start.getText() + "|" +
-                              owner.getText() + "|OPEN";
+                              selectedDate + "|" +
+                              person.getText().toString().trim() + "|" +
+                              train.getText().toString().trim() + "|" +
+                              selectedStart + "|" +
+                              selectedStart + "|OPEN";
 
                       records.add(record);
                       persist();
 
-                      Toast.makeText(
-                              this,
-                              "Kayıt kaydedildi. Uygulamayı kapatabilirsin.",
-                              Toast.LENGTH_LONG
-                      ).show();
-
+                      Toast.makeText(this, "Görev kaydedildi. Uygulamayı kapatabilirsin.", Toast.LENGTH_LONG).show();
                       home();
                   });
 
@@ -234,28 +247,65 @@ jobs:
                   cancel.setOnClickListener(v -> home());
               }
 
+              void chooseDate(Button target, boolean homeDate) {
+                  Calendar c = Calendar.getInstance();
+
+                  DatePickerDialog d = new DatePickerDialog(
+                      this,
+                      (view, year, month, day) -> {
+                          String value = String.format(Locale.getDefault(), "%02d.%02d.%04d", day, month + 1, year);
+                          if (!homeDate) {
+                              selectedDate = value;
+                              target.setText("Tarih: " + value);
+                          }
+                      },
+                      c.get(Calendar.YEAR),
+                      c.get(Calendar.MONTH),
+                      c.get(Calendar.DAY_OF_MONTH)
+                  );
+                  d.show();
+              }
+
+              void chooseTime(Button target, boolean start) {
+                  Calendar c = Calendar.getInstance();
+
+                  TimePickerDialog d = new TimePickerDialog(
+                      this,
+                      (view, hour, minute) -> {
+                          String value = String.format(Locale.getDefault(), "%02d:%02d", hour, minute);
+                          if (start) {
+                              selectedStart = value;
+                              target.setText("Görev alış / başlangıç: " + value);
+                          }
+                      },
+                      c.get(Calendar.HOUR_OF_DAY),
+                      c.get(Calendar.MINUTE),
+                      true
+                  );
+                  d.show();
+              }
+
               void ongoing() {
                   page("Devam Eden Kayıtlar");
 
                   boolean found = false;
 
-                  for (String r : records) {
+                  for (String r : new ArrayList<>(records)) {
                       if (r.endsWith("|OPEN")) {
                           found = true;
                           String[] a = r.split("\\|", -1);
 
-                          Button b = button(
-                              a[1] + " • Tren " + a[3] + " • " + a[2]
-                          );
+                          String person = a.length > 2 ? a[2] : "";
+                          String train = a.length > 3 ? a[3] : "";
+                          String date = a.length > 1 ? a[1] : "";
 
+                          Button b = button(date + " • Tren " + train + " • " + person);
                           root.addView(b);
                           b.setOnClickListener(v -> complete(r));
                       }
                   }
 
-                  if (!found) {
-                      root.addView(tv("Devam eden kayıt yok.", 16));
-                  }
+                  if (!found) root.addView(info("Devam eden kayıt yok."));
 
                   Button back = button("Ana Sayfa");
                   root.addView(back);
@@ -265,45 +315,57 @@ jobs:
               void complete(String r) {
                   String[] a = r.split("\\|", -1);
 
-                  page("Tren Teslim");
+                  page("Görev Tamamla");
 
-                  root.addView(tv(
+                  root.addView(info(
                       "Tarih: " + a[1] +
                       "\nTren: " + a[3] +
-                      "\nKiminle: " + a[2],
-                      17
+                      "\nKiminle: " + a[2] +
+                      "\nGörev alış / başlangıç: " + a[4]
                   ));
 
-                  EditText end = field("Tren teslim / görev bitiş saati (SS:DD)");
-                  root.addView(end);
+                  final String[] finish = {""};
+                  final String[] homeDate = {""};
+                  final String[] homeIn = {""};
 
-                  EditText owner = field("Teslim/tesellüm sahibi");
+                  Button finishButton = button("Görev bitiş / teslim saati seç");
+                  root.addView(finishButton);
+                  finishButton.setOnClickListener(v -> chooseFinishTime(finishButton, finish));
+
+                  EditText owner = field("Teslim / tesellüm sahibi");
                   root.addView(owner);
 
-                  EditText homeDate = field("Eve giriş tarihi (GG.AA.YYYY)");
-                  root.addView(homeDate);
+                  Button homeDateButton = button("Eve giriş tarihi seç");
+                  root.addView(homeDateButton);
+                  homeDateButton.setOnClickListener(v -> chooseHomeDate(homeDateButton, homeDate));
 
-                  EditText homeIn = field("Eve giriş saati (SS:DD)");
-                  root.addView(homeIn);
+                  Button homeTimeButton = button("Eve giriş saati seç");
+                  root.addView(homeTimeButton);
+                  homeTimeButton.setOnClickListener(v -> chooseHomeTime(homeTimeButton, homeIn));
 
-                  Button save = button("Teslimi Kaydet");
+                  Button save = button("Görevi Tamamla");
                   root.addView(save);
 
                   save.setOnClickListener(v -> {
+                      if (finish[0].isEmpty() || homeDate[0].isEmpty() || homeIn[0].isEmpty()) {
+                          Toast.makeText(this, "Bitiş ve eve giriş bilgilerini tamamla.", Toast.LENGTH_LONG).show();
+                          return;
+                      }
+
                       String newRecord =
                           r.replace(
                               "|OPEN",
                               "|DONE|" +
-                              end.getText() + "|" +
-                              owner.getText() + "|" +
-                              homeDate.getText() + "|" +
-                              homeIn.getText()
+                              finish[0] + "|" +
+                              owner.getText().toString().trim() + "|" +
+                              homeDate[0] + "|" +
+                              homeIn[0]
                           );
 
                       records.set(records.indexOf(r), newRecord);
                       persist();
 
-                      Toast.makeText(this, "Kayıt tamamlandı.", Toast.LENGTH_SHORT).show();
+                      Toast.makeText(this, "Görev tamamlandı.", Toast.LENGTH_SHORT).show();
                       home();
                   });
 
@@ -312,21 +374,67 @@ jobs:
                   cancel.setOnClickListener(v -> ongoing());
               }
 
+              void chooseFinishTime(Button target, String[] result) {
+                  Calendar c = Calendar.getInstance();
+                  TimePickerDialog d = new TimePickerDialog(
+                      this,
+                      (view, hour, minute) -> {
+                          result[0] = String.format(Locale.getDefault(), "%02d:%02d", hour, minute);
+                          target.setText("Görev bitiş / teslim: " + result[0]);
+                      },
+                      c.get(Calendar.HOUR_OF_DAY),
+                      c.get(Calendar.MINUTE),
+                      true
+                  );
+                  d.show();
+              }
+
+              void chooseHomeDate(Button target, String[] result) {
+                  Calendar c = Calendar.getInstance();
+                  DatePickerDialog d = new DatePickerDialog(
+                      this,
+                      (view, year, month, day) -> {
+                          result[0] = String.format(Locale.getDefault(), "%02d.%02d.%04d", day, month + 1, year);
+                          target.setText("Eve giriş tarihi: " + result[0]);
+                      },
+                      c.get(Calendar.YEAR),
+                      c.get(Calendar.MONTH),
+                      c.get(Calendar.DAY_OF_MONTH)
+                  );
+                  d.show();
+              }
+
+              void chooseHomeTime(Button target, String[] result) {
+                  Calendar c = Calendar.getInstance();
+                  TimePickerDialog d = new TimePickerDialog(
+                      this,
+                      (view, hour, minute) -> {
+                          result[0] = String.format(Locale.getDefault(), "%02d:%02d", hour, minute);
+                          target.setText("Eve giriş saati: " + result[0]);
+                      },
+                      c.get(Calendar.HOUR_OF_DAY),
+                      c.get(Calendar.MINUTE),
+                      true
+                  );
+                  d.show();
+              }
+
               void monthly() {
                   page("Aylık Kayıtlar");
 
                   if (records.isEmpty()) {
-                      root.addView(tv("Henüz kayıt yok.", 16));
+                      root.addView(info("Henüz kayıt yok."));
                   }
 
                   for (String r : records) {
                       String[] a = r.split("\\|", -1);
-                      root.addView(tv(
-                          a[1] + " • Tren " + a[3] +
-                          " • " + a[2] +
-                          " • " + (r.contains("|OPEN") ? "Devam ediyor" : "Tamamlandı"),
-                          16
-                      ));
+                      if (a.length >= 4) {
+                          root.addView(info(
+                              a[1] + " • Tren " + a[3] +
+                              " • " + a[2] +
+                              " • " + (r.endsWith("|OPEN") ? "Devam ediyor" : "Tamamlandı")
+                          ));
+                      }
                   }
 
                   Button back = button("Ana Sayfa");
@@ -356,10 +464,10 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-debug.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.2.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: Puantaj-debug
-          path: Puantaj-debug.apk
+          name: Puantaj-v0.2
+          path: Puantaj-v0.2.apk
