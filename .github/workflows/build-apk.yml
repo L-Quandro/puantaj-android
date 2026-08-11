@@ -1,0 +1,362 @@
+name: Puantaj APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Android projesini oluştur
+        shell: bash
+        run: |
+          set -e
+
+          mkdir -p puantaj/app/src/main/java/com/furkan/puantaj
+          mkdir -p puantaj/app/src/main/res/values
+
+          cat > puantaj/settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "PuantajAndroid"
+          include(":app")
+          EOF
+
+          cat > puantaj/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.5.2' apply false
+          }
+          EOF
+
+          cat > puantaj/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          EOF
+
+          cat > puantaj/app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.furkan.puantaj'
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId 'com.furkan.puantaj'
+                  minSdk 26
+                  targetSdk 35
+                  versionCode 1
+                  versionName '0.1'
+              }
+          }
+
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.7.0'
+              implementation 'com.google.android.material:material:1.12.0'
+          }
+          EOF
+
+          cat > puantaj/app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application
+                  android:theme="@style/Theme.Puantaj"
+                  android:label="Puantaj"
+                  android:allowBackup="true"
+                  android:supportsRtl="true">
+                  <activity
+                      android:name=".MainActivity"
+                      android:screenOrientation="portrait"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > puantaj/app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+              <style name="Theme.Puantaj" parent="Theme.Material3.DayNight.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+              </style>
+          </resources>
+          EOF
+
+          cat > puantaj/app/src/main/res/values/strings.xml <<'EOF'
+          <resources>
+              <string name="app_name">Puantaj</string>
+          </resources>
+          EOF
+
+          cat > puantaj/app/src/main/java/com/furkan/puantaj/MainActivity.java <<'EOF'
+          package com.furkan.puantaj;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.content.SharedPreferences;
+          import android.view.View;
+          import android.widget.*;
+          import java.text.SimpleDateFormat;
+          import java.util.*;
+
+          public class MainActivity extends Activity {
+              LinearLayout root;
+              SharedPreferences prefs;
+              ArrayList<String> records = new ArrayList<>();
+
+              public void onCreate(Bundle b) {
+                  super.onCreate(b);
+                  prefs = getSharedPreferences("puantaj", MODE_PRIVATE);
+                  load();
+                  home();
+              }
+
+              TextView tv(String s, int size) {
+                  TextView t = new TextView(this);
+                  t.setText(s);
+                  t.setTextSize(size);
+                  t.setPadding(0, 12, 0, 12);
+                  return t;
+              }
+
+              Button button(String s) {
+                  Button b = new Button(this);
+                  b.setText(s);
+                  b.setAllCaps(false);
+                  return b;
+              }
+
+              EditText field(String hint) {
+                  EditText e = new EditText(this);
+                  e.setHint(hint);
+                  e.setSingleLine(true);
+                  e.setPadding(0, 12, 0, 12);
+                  return e;
+              }
+
+              void page(String title) {
+                  ScrollView scroll = new ScrollView(this);
+                  root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setPadding(20, 20, 20, 20);
+                  scroll.addView(root);
+                  setContentView(scroll);
+                  root.addView(tv(title, 27));
+              }
+
+              void home() {
+                  page("PUANTAJ");
+                  root.addView(tv("Tren görevi kayıtlarını telefondan yönet.", 16));
+
+                  Button n = button("Yeni Görev / Tren Al");
+                  root.addView(n);
+                  n.setOnClickListener(v -> newRecord());
+
+                  Button o = button("Devam Eden Kayıtlar");
+                  root.addView(o);
+                  o.setOnClickListener(v -> ongoing());
+
+                  Button m = button("Aylık Kayıtlar");
+                  root.addView(m);
+                  m.setOnClickListener(v -> monthly());
+
+                  root.addView(tv("Kayıtlar telefonda saklanır. Görev başlatıp uygulamayı kapatabilirsin.", 14));
+              }
+
+              void newRecord() {
+                  page("Yeni Görev / Tren Al");
+
+                  EditText date = field("Tarih (GG.AA.YYYY)");
+                  date.setText(new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(new Date()));
+                  root.addView(date);
+
+                  EditText person = field("Kiminle gittin?");
+                  root.addView(person);
+
+                  EditText train = field("Tren no");
+                  root.addView(train);
+
+                  EditText homeOut = field("Evden çıkış saati (SS:DD)");
+                  root.addView(homeOut);
+
+                  EditText start = field("Görev / tren teslim alma saati (SS:DD)");
+                  root.addView(start);
+
+                  EditText owner = field("Başlangıç teslim/tesellüm sahibi");
+                  root.addView(owner);
+
+                  Button save = button("Kaydet ve Çık");
+                  root.addView(save);
+
+                  save.setOnClickListener(v -> {
+                      String record =
+                              UUID.randomUUID() + "|" +
+                              date.getText() + "|" +
+                              person.getText() + "|" +
+                              train.getText() + "|" +
+                              homeOut.getText() + "|" +
+                              start.getText() + "|" +
+                              owner.getText() + "|OPEN";
+
+                      records.add(record);
+                      persist();
+
+                      Toast.makeText(
+                              this,
+                              "Kayıt kaydedildi. Uygulamayı kapatabilirsin.",
+                              Toast.LENGTH_LONG
+                      ).show();
+
+                      home();
+                  });
+
+                  Button cancel = button("Vazgeç");
+                  root.addView(cancel);
+                  cancel.setOnClickListener(v -> home());
+              }
+
+              void ongoing() {
+                  page("Devam Eden Kayıtlar");
+
+                  boolean found = false;
+
+                  for (String r : records) {
+                      if (r.endsWith("|OPEN")) {
+                          found = true;
+                          String[] a = r.split("\\|", -1);
+
+                          Button b = button(
+                              a[1] + " • Tren " + a[3] + " • " + a[2]
+                          );
+
+                          root.addView(b);
+                          b.setOnClickListener(v -> complete(r));
+                      }
+                  }
+
+                  if (!found) {
+                      root.addView(tv("Devam eden kayıt yok.", 16));
+                  }
+
+                  Button back = button("Ana Sayfa");
+                  root.addView(back);
+                  back.setOnClickListener(v -> home());
+              }
+
+              void complete(String r) {
+                  String[] a = r.split("\\|", -1);
+
+                  page("Tren Teslim");
+
+                  root.addView(tv(
+                      "Tarih: " + a[1] +
+                      "\nTren: " + a[3] +
+                      "\nKiminle: " + a[2],
+                      17
+                  ));
+
+                  EditText end = field("Tren teslim / görev bitiş saati (SS:DD)");
+                  root.addView(end);
+
+                  EditText owner = field("Teslim/tesellüm sahibi");
+                  root.addView(owner);
+
+                  EditText homeDate = field("Eve giriş tarihi (GG.AA.YYYY)");
+                  root.addView(homeDate);
+
+                  EditText homeIn = field("Eve giriş saati (SS:DD)");
+                  root.addView(homeIn);
+
+                  Button save = button("Teslimi Kaydet");
+                  root.addView(save);
+
+                  save.setOnClickListener(v -> {
+                      String newRecord =
+                          r.replace(
+                              "|OPEN",
+                              "|DONE|" +
+                              end.getText() + "|" +
+                              owner.getText() + "|" +
+                              homeDate.getText() + "|" +
+                              homeIn.getText()
+                          );
+
+                      records.set(records.indexOf(r), newRecord);
+                      persist();
+
+                      Toast.makeText(this, "Kayıt tamamlandı.", Toast.LENGTH_SHORT).show();
+                      home();
+                  });
+
+                  Button cancel = button("Vazgeç");
+                  root.addView(cancel);
+                  cancel.setOnClickListener(v -> ongoing());
+              }
+
+              void monthly() {
+                  page("Aylık Kayıtlar");
+
+                  if (records.isEmpty()) {
+                      root.addView(tv("Henüz kayıt yok.", 16));
+                  }
+
+                  for (String r : records) {
+                      String[] a = r.split("\\|", -1);
+                      root.addView(tv(
+                          a[1] + " • Tren " + a[3] +
+                          " • " + a[2] +
+                          " • " + (r.contains("|OPEN") ? "Devam ediyor" : "Tamamlandı"),
+                          16
+                      ));
+                  }
+
+                  Button back = button("Ana Sayfa");
+                  root.addView(back);
+                  back.setOnClickListener(v -> home());
+              }
+
+              void load() {
+                  String all = prefs.getString("records", "");
+                  if (!all.isEmpty()) {
+                      records.addAll(Arrays.asList(all.split("\\n", -1)));
+                  }
+              }
+
+              void persist() {
+                  StringBuilder out = new StringBuilder();
+
+                  for (String r : records) {
+                      if (out.length() > 0) out.append("\n");
+                      out.append(r);
+                  }
+
+                  prefs.edit().putString("records", out.toString()).apply();
+              }
+          }
+          EOF
+
+          cd puantaj
+          gradle assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-debug.apk"
+
+      - name: APK'yı yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: Puantaj-debug
+          path: Puantaj-debug.apk
