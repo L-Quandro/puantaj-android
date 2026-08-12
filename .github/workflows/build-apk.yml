@@ -57,8 +57,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 4
-                  versionName '0.4'
+                  versionCode 5
+                  versionName '0.5'
               }
           }
           dependencies {
@@ -298,7 +298,10 @@ jobs:
                   c.addView(train);
           
                   c.addView(section("Başlangıç"));
-          
+
+                  TextInputLayout owner = field("Teslim / tesellüm sahibi");
+                  c.addView(owner);
+
                   Button startButton = choice("Saat seç  •  Henüz seçilmedi");
                   c.addView(startButton);
                   startButton.setOnClickListener(v -> chooseTime(startButton, true));
@@ -541,6 +544,11 @@ jobs:
                       String chainId = a[0];
                       String newRecord = chainId + "|" + selectedStartDate + "|" + a[2] + "|" + a[3] + "|" +
                               selectedStart + "|" + value(owner) + "|OPEN";
+                      int oldIndex = records.indexOf(r);
+                      String closedHotel = r.replace("|HOTEL|", "|HOTEL_DONE|");
+                      if (oldIndex >= 0) {
+                          records.set(oldIndex, closedHotel);
+                      }
                       records.add(newRecord);
                       persist();
 
