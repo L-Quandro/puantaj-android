@@ -1,4 +1,4 @@
-name: Puantaj APK v0.5.5
+name: Puantaj APK v0.5.7
 
 on:
   push:
@@ -57,8 +57,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 9
-                  versionName '0.5.5'
+                  versionCode 11
+                  versionName '0.5.7'
               }
           }
           dependencies {
@@ -731,7 +731,7 @@ jobs:
               }
                
               void monthly() {
-                  page("Aylık Kayıtlar", "Aynı servis zinciri tek kayıt içinde; çalışma günleri ve otel/bekleme günleri ayrı gösterilir.");
+                  page("Aylık Kayıtlar", "Yıl ve ay seçerek kayıtlarını düzenli şekilde görüntüle.");
 
                   if (records.isEmpty()) {
                       LinearLayout empty = card();
@@ -771,207 +771,397 @@ jobs:
                       return a[4].compareTo(b[4]);
                   });
 
-                  SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault());
-                  dateFormat.setLenient(false);
-
+                  // Kayıtlarda bulunan yılları çıkar.
+                  TreeSet<Integer> yearSet = new TreeSet<>();
                   for (ArrayList<String> chain : sortedChains) {
-                      Collections.sort(chain, (x, y) -> {
-                          String[] a = x.split("\\|", -1);
-                          String[] b = y.split("\\|", -1);
-
-                          int dateCompare = compareDates(a[1], b[1]);
-                          if (dateCompare != 0) return dateCompare;
-
-                          return a[4].compareTo(b[4]);
-                      });
-
-                      String startDate = "";
-                      String endDate = "";
-                      String firstTrain = "";
-                      String lastTrain = "";
-                      boolean completed = false;
-
-                      // Başlangıç/bitiş ve tren bilgilerini sadece çalışma segmentlerinden al.
-                      for (String segment : chain) {
-                          String[] a = segment.split("\\|", -1);
-                          if (a.length < 7) continue;
-
-                          String status = a[6];
-                          if ("HOTEL".equals(status) || "HOTEL_DONE".equals(status)) {
-                              continue;
-                          }
-
-                          if (startDate.isEmpty()) {
-                              startDate = a[1];
-                              firstTrain = a[3];
-                          }
-
-                          endDate = a[1];
-                          lastTrain = a[3];
-
-                          if ("DONE".equals(status)) {
-                              completed = true;
-                          }
-                      }
-
-                      // Eski/eksik bir kayıtta yalnızca otel segmenti varsa başlığı yine üret.
-                      if (startDate.isEmpty() && !chain.isEmpty()) {
-                          String[] first = chain.get(0).split("\\|", -1);
-                          startDate = first[1];
-                          endDate = first[1];
-                          firstTrain = first[3];
-                          lastTrain = first[3];
-                      }
-
-                      LinearLayout chainCard = card();
-
-                      String chainTitle;
-                      if (startDate.equals(endDate)) {
-                          chainTitle = startDate + "  •  SERVİS";
-                      } else {
-                          chainTitle = startDate + " → " + endDate + "  •  SERVİS";
-                      }
-                      chainCard.addView(text(chainTitle, 18,
-                              Color.rgb(245,243,250), true));
-
-                      if (firstTrain.equals(lastTrain)) {
-                          chainCard.addView(text("Tren " + firstTrain, 14,
-                                  Color.rgb(190,182,200), false));
-                      } else {
-                          chainCard.addView(text("Tren " + firstTrain + "  →  " + lastTrain, 14,
-                                  Color.rgb(190,182,200), false));
-                      }
-
-                      chainCard.addView(text(
-                              completed ? "SERVİS TAMAMLANDI" : "SERVİS DEVAM EDİYOR",
-                              12,
-                              completed ? Color.rgb(180,205,190) : Color.rgb(235,190,90),
-                              true));
-
                       for (String r : chain) {
                           String[] a = r.split("\\|", -1);
-                          if (a.length < 7) continue;
+                          if (a.length < 2) continue;
+                          try {
+                              String dateForYear = ("HOTEL".equals(a.length > 6 ? a[6] : "") ||
+                                      "HOTEL_DONE".equals(a.length > 6 ? a[6] : ""))
+                                      && a.length >= 8 ? a[7] : a[1];
+                              Date d = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).parse(dateForYear);
+                              if (d != null) {
+                                  Calendar cal = Calendar.getInstance();
+                                  cal.setTime(d);
+                                  yearSet.add(cal.get(Calendar.YEAR));
+                              }
+                          } catch (Exception ignored) {}
+                      }
+                  }
 
-                          String status = a[6];
+                  if (yearSet.isEmpty()) {
+                      LinearLayout empty = card();
+                      empty.addView(text("Tarih bilgisi okunamadı.", 18, Color.rgb(240,236,246), true));
+                      root.addView(empty);
+                  } else {
+                      Integer[] years = yearSet.toArray(new Integer[0]);
+                      String[] yearLabels = new String[years.length];
+                      for (int i = 0; i < years.length; i++) {
+                          yearLabels[i] = String.valueOf(years[i]);
+                      }
 
-                          // Otel segmenti hiçbir zaman "kiminle" bilgisi göstermez.
-                          // HOTEL_DONE da aynı otel kaydıdır; sadece sonradan devam edilmiştir.
-                          if ("HOTEL".equals(status) || "HOTEL_DONE".equals(status)) {
-                              if (a.length >= 11) {
-                                  LinearLayout hotel = card();
-                                  hotel.setBackground(bg(Color.rgb(33,28,43), 18));
+                      String[] monthLabels = new String[]{
+                              "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+                              "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
+                      };
 
-                                  hotel.addView(text(a[7] + "  •  OTEL / BEKLEME", 14,
-                                          Color.rgb(230,220,238), true));
-                                  hotel.addView(text("Teslim  •  " + a[8] +
-                                          "  •  Tesellüm: " + a[9], 13,
-                                          Color.rgb(205,196,220), false));
-                                  hotel.addView(text("Otele varış  •  " + a[10] +
-                                          "  (+30 dk çalışma)", 13,
-                                          Color.rgb(180,205,190), false));
+                      // Varsayılan olarak en son kayıtlı yıl ve ay seçilir.
+                      int defaultYearIndex = years.length - 1;
+                      int defaultMonthIndex = 0;
+                      int latestYear = years[defaultYearIndex];
+                      Date latestDate = null;
+                      SimpleDateFormat filterDate = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault());
+                      filterDate.setLenient(false);
 
-                                  if ("HOTEL_DONE".equals(status)) {
-                                      hotel.addView(text("Sonraki gün trene devam edildi.",
-                                              13, Color.rgb(190,175,220), false));
-                                  } else {
-                                      hotel.addView(text("Tren devamı bekleniyor.",
-                                              13, Color.rgb(175,168,185), false));
+                      for (ArrayList<String> chain : sortedChains) {
+                          for (String r : chain) {
+                              String[] a = r.split("\\|", -1);
+                              if (a.length < 2) continue;
+                              try {
+                                  Date d = filterDate.parse(a[1]);
+                                  if (d != null && (latestDate == null || d.after(latestDate))) {
+                                      latestDate = d;
                                   }
+                              } catch (Exception ignored) {}
+                          }
+                      }
 
-                                  chainCard.addView(hotel);
+                      if (latestDate != null) {
+                          Calendar latestCal = Calendar.getInstance();
+                          latestCal.setTime(latestDate);
+                          latestYear = latestCal.get(Calendar.YEAR);
+                          defaultMonthIndex = latestCal.get(Calendar.MONTH);
+                          for (int i = 0; i < years.length; i++) {
+                              if (years[i] == latestYear) {
+                                  defaultYearIndex = i;
+                                  break;
+                              }
+                          }
+                      }
 
-                                  // Otel tesliminden sonraki, yeni görev tarihinden önceki
-                                  // günleri otomatik olarak otel/bekleme olarak göster.
-                                  String nextDate = "";
-                                  for (String nextSegment : chain) {
-                                      String[] n = nextSegment.split("\\|", -1);
-                                      if (n.length >= 7 &&
-                                              !"HOTEL".equals(n[6]) &&
-                                              !"HOTEL_DONE".equals(n[6]) &&
-                                              compareDates(n[1], a[7]) > 0) {
-                                          if (nextDate.isEmpty() ||
-                                                  compareDates(n[1], nextDate) < 0) {
-                                              nextDate = n[1];
+                      LinearLayout filterCard = card();
+                      filterCard.setBackground(bg(Color.rgb(40,32,55), 22));
+                      filterCard.addView(section("Kayıt dönemi"));
+
+                      TextView yearLabel = text("YIL", 11, Color.rgb(183,161,220), true);
+                      yearLabel.setPadding(dp(2), 0, 0, dp(4));
+                      filterCard.addView(yearLabel);
+
+                      Spinner yearSpinner = new Spinner(this);
+                      ArrayAdapter<String> yearAdapter = new ArrayAdapter<String>(
+                              this,
+                              android.R.layout.simple_spinner_dropdown_item,
+                              yearLabels
+                      );
+                      yearSpinner.setAdapter(yearAdapter);
+                      yearSpinner.setSelection(defaultYearIndex);
+                      filterCard.addView(yearSpinner, new LinearLayout.LayoutParams(-1, dp(54)));
+
+                      TextView monthLabel = text("AY", 11, Color.rgb(183,161,220), true);
+                      monthLabel.setPadding(dp(2), dp(10), 0, dp(4));
+                      filterCard.addView(monthLabel);
+
+                      Spinner monthSpinner = new Spinner(this);
+                      ArrayAdapter<String> monthAdapter = new ArrayAdapter<String>(
+                              this,
+                              android.R.layout.simple_spinner_dropdown_item,
+                              monthLabels
+                      );
+                      monthSpinner.setAdapter(monthAdapter);
+                      monthSpinner.setSelection(defaultMonthIndex);
+                      filterCard.addView(monthSpinner, new LinearLayout.LayoutParams(-1, dp(54)));
+
+                      root.addView(filterCard);
+
+                      LinearLayout resultContainer = new LinearLayout(this);
+                      resultContainer.setOrientation(LinearLayout.VERTICAL);
+                      root.addView(resultContainer);
+
+                      Runnable render = () -> {
+                          resultContainer.removeAllViews();
+
+                          int selectedYear = years[Math.max(0, yearSpinner.getSelectedItemPosition())];
+                          int selectedMonth = Math.max(0, monthSpinner.getSelectedItemPosition());
+
+                          int visibleChains = 0;
+
+                          for (ArrayList<String> chain : sortedChains) {
+                              // Zincirin seçilen ay/yılda en az bir çalışma veya otel segmenti
+                              // içermesi halinde bu ay altında gösterilir.
+                              boolean belongsToMonth = false;
+                              for (String r : chain) {
+                                  String[] a = r.split("\\|", -1);
+                                  if (a.length < 2) continue;
+                                  try {
+                                      String dateForFilter = ("HOTEL".equals(a.length > 6 ? a[6] : "") ||
+                                              "HOTEL_DONE".equals(a.length > 6 ? a[6] : ""))
+                                              && a.length >= 8 ? a[7] : a[1];
+                                      Date d = filterDate.parse(dateForFilter);
+                                      if (d != null) {
+                                          Calendar cal = Calendar.getInstance();
+                                          cal.setTime(d);
+                                          if (cal.get(Calendar.YEAR) == selectedYear &&
+                                                  cal.get(Calendar.MONTH) == selectedMonth) {
+                                              belongsToMonth = true;
+                                              break;
                                           }
                                       }
+                                  } catch (Exception ignored) {}
+                              }
+
+                              if (!belongsToMonth) continue;
+                              visibleChains++;
+
+                              Collections.sort(chain, (x, y) -> {
+                                  String[] a = x.split("\\|", -1);
+                                  String[] b = y.split("\\|", -1);
+
+                                  int dateCompare = compareDates(a[1], b[1]);
+                                  if (dateCompare != 0) return dateCompare;
+
+                                  return a[4].compareTo(b[4]);
+                              });
+
+                              String startDate = "";
+                              String endDate = "";
+                              String firstTrain = "";
+                              String lastTrain = "";
+                              String firstPerson = "";
+                              String firstStart = "";
+                              String firstOwner = "";
+                              boolean completed = false;
+
+                              // Servisin ilk çalışma segmentindeki tüm başlangıç bilgilerini al.
+                              for (String segment : chain) {
+                                  String[] a = segment.split("\\|", -1);
+                                  if (a.length < 7) continue;
+
+                                  String status = a[6];
+                                  if ("HOTEL".equals(status) || "HOTEL_DONE".equals(status)) {
+                                      continue;
                                   }
 
-                                  if (!nextDate.isEmpty()) {
-                                      try {
-                                          Date from = dateFormat.parse(a[7]);
-                                          Date to = dateFormat.parse(nextDate);
+                                  if (startDate.isEmpty()) {
+                                      startDate = a[1];
+                                      firstTrain = a[3];
+                                      firstPerson = a[2];
+                                      firstStart = a[4];
+                                      firstOwner = a[5];
+                                  }
 
-                                          if (from != null && to != null) {
-                                              Calendar c = Calendar.getInstance();
-                                              c.setTime(from);
-                                              c.add(Calendar.DAY_OF_MONTH, 1);
+                                  endDate = a[1];
+                                  lastTrain = a[3];
 
-                                              while (c.getTime().before(to)) {
-                                                  String d = dateFormat.format(c.getTime());
-
-                                                  LinearLayout wait = card();
-                                                  wait.setBackground(bg(Color.rgb(27,24,32), 18));
-                                                  wait.addView(text(d + "  •  OTEL / BEKLEME", 14,
-                                                          Color.rgb(210,200,222), true));
-                                                  wait.addView(text("Çalışma kaydı yok • Otel konaklaması",
-                                                          13, Color.rgb(165,158,175), false));
-                                                  chainCard.addView(wait);
-
-                                                  c.add(Calendar.DAY_OF_MONTH, 1);
-                                              }
-                                          }
-                                      } catch (Exception ignored) {}
+                                  if ("DONE".equals(status)) {
+                                      completed = true;
                                   }
                               }
 
-                              continue;
+                              if (startDate.isEmpty() && !chain.isEmpty()) {
+                                  String[] first = chain.get(0).split("\\|", -1);
+                                  startDate = first[1];
+                                  endDate = first[1];
+                                  firstTrain = first[3];
+                                  lastTrain = first[3];
+                              }
+
+                              LinearLayout chainCard = card();
+
+                              String chainTitle;
+                              if (startDate.equals(endDate)) {
+                                  chainTitle = startDate + "  •  SERVİS";
+                              } else {
+                                  chainTitle = startDate + " → " + endDate + "  •  SERVİS";
+                              }
+                              chainCard.addView(text(chainTitle, 18,
+                                      Color.rgb(245,243,250), true));
+
+                              if (firstTrain.equals(lastTrain)) {
+                                  chainCard.addView(text("Tren " + firstTrain, 14,
+                                          Color.rgb(190,182,200), false));
+                              } else {
+                                  chainCard.addView(text("Tren " + firstTrain + "  →  " + lastTrain, 14,
+                                          Color.rgb(190,182,200), false));
+                              }
+
+                              // Servis başlangıcında girilen bilgiler kartın üst kısmında
+                              // doğrudan görünür; böylece ilk segmentin tüm temel bilgileri kaybolmaz.
+                              if (!firstPerson.isEmpty()) {
+                                  chainCard.addView(text("Kiminle  •  " + firstPerson, 14,
+                                          Color.rgb(205,196,220), false));
+                              }
+                              if (!firstStart.isEmpty()) {
+                                  chainCard.addView(text("Başlangıç  •  " + firstStart, 14,
+                                          Color.rgb(205,196,220), false));
+                              }
+                              if (!firstOwner.isEmpty()) {
+                                  chainCard.addView(text("Başlangıç tesellüm  •  " + firstOwner, 14,
+                                          Color.rgb(205,196,220), false));
+                              }
+
+                              chainCard.addView(text(
+                                      completed ? "SERVİS TAMAMLANDI" : "SERVİS DEVAM EDİYOR",
+                                      12,
+                                      completed ? Color.rgb(180,205,190) : Color.rgb(235,190,90),
+                                      true));
+
+                              for (String r : chain) {
+                                  String[] a = r.split("\\|", -1);
+                                  if (a.length < 7) continue;
+
+                                  String status = a[6];
+
+                                  // Otel segmenti hiçbir zaman "kiminle" bilgisi göstermez.
+                                  if ("HOTEL".equals(status) || "HOTEL_DONE".equals(status)) {
+                                      if (a.length >= 11) {
+                                          LinearLayout hotel = card();
+                                          hotel.setBackground(bg(Color.rgb(33,28,43), 18));
+
+                                          hotel.addView(text(a[7] + "  •  OTEL / BEKLEME", 14,
+                                                  Color.rgb(230,220,238), true));
+                                          hotel.addView(text("Teslim  •  " + a[8] +
+                                                  "  •  Tesellüm: " + a[9], 13,
+                                                  Color.rgb(205,196,220), false));
+                                          hotel.addView(text("Otele varış  •  " + a[10] +
+                                                  "  (+30 dk çalışma)", 13,
+                                                  Color.rgb(180,205,190), false));
+
+                                          if ("HOTEL_DONE".equals(status)) {
+                                              hotel.addView(text("Sonraki gün trene devam edildi.",
+                                                      13, Color.rgb(190,175,220), false));
+                                          } else {
+                                              hotel.addView(text("Tren devamı bekleniyor.",
+                                                      13, Color.rgb(175,168,185), false));
+                                          }
+
+                                          chainCard.addView(hotel);
+
+                                          String nextDate = "";
+                                          for (String nextSegment : chain) {
+                                              String[] n = nextSegment.split("\\|", -1);
+                                              if (n.length >= 7 &&
+                                                      !"HOTEL".equals(n[6]) &&
+                                                      !"HOTEL_DONE".equals(n[6]) &&
+                                                      compareDates(n[1], a[7]) > 0) {
+                                                  if (nextDate.isEmpty() ||
+                                                          compareDates(n[1], nextDate) < 0) {
+                                                      nextDate = n[1];
+                                                  }
+                                              }
+                                          }
+
+                                          if (!nextDate.isEmpty()) {
+                                              try {
+                                                  Date from = filterDate.parse(a[7]);
+                                                  Date to = filterDate.parse(nextDate);
+
+                                                  if (from != null && to != null) {
+                                                      Calendar c = Calendar.getInstance();
+                                                      c.setTime(from);
+                                                      c.add(Calendar.DAY_OF_MONTH, 1);
+
+                                                      while (c.getTime().before(to)) {
+                                                          String d = filterDate.format(c.getTime());
+
+                                                          LinearLayout wait = card();
+                                                          wait.setBackground(bg(Color.rgb(27,24,32), 18));
+                                                          wait.addView(text(d + "  •  OTEL / BEKLEME", 14,
+                                                                  Color.rgb(210,200,222), true));
+                                                          wait.addView(text("Çalışma kaydı yok • Otel konaklaması",
+                                                                  13, Color.rgb(165,158,175), false));
+                                                          chainCard.addView(wait);
+
+                                                          c.add(Calendar.DAY_OF_MONTH, 1);
+                                                      }
+                                                  }
+                                              } catch (Exception ignored) {}
+                                          }
+                                      }
+
+                                      continue;
+                                  }
+
+                                  // Çalışılan her tarih ayrı segment olarak görünür.
+                                  LinearLayout segmentCard = card();
+                                  segmentCard.setBackground(bg(Color.rgb(35,31,42), 18));
+
+                                  segmentCard.addView(text(
+                                          a[1] + "  •  TREN " + a[3],
+                                          16, Color.rgb(245,243,250), true));
+
+                                  segmentCard.addView(text(
+                                          "Kiminle  •  " + a[2],
+                                          14, Color.rgb(205,196,220), false));
+
+                                  segmentCard.addView(text(
+                                          "Başlangıç  •  " + a[4],
+                                          13, Color.rgb(185,178,195), false));
+
+                                  segmentCard.addView(text(
+                                          "Başlangıç tesellüm  •  " + a[5],
+                                          13, Color.rgb(170,165,180), false));
+
+                                  if ("DONE".equals(status) && a.length >= 11) {
+                                      segmentCard.addView(text("TAMAMLANDI", 12,
+                                              Color.rgb(180,205,190), true));
+
+                                      segmentCard.addView(text(
+                                              "Bitiş  •  " + a[7] + " " + a[8],
+                                              13, Color.rgb(205,196,220), false));
+
+                                      segmentCard.addView(text(
+                                              "Tesellüm  •  " + a[9],
+                                              13, Color.rgb(205,196,220), false));
+
+                                      segmentCard.addView(text(
+                                              "Eve giriş  •  " + a[10] + "  (+30 dk)",
+                                              13, Color.rgb(180,205,190), false));
+                                  } else if ("OPEN".equals(status)) {
+                                      segmentCard.addView(text("DEVAM EDİYOR", 12,
+                                              Color.rgb(235,190,90), true));
+                                  }
+
+                                  chainCard.addView(segmentCard);
+                              }
+
+                              resultContainer.addView(chainCard);
                           }
 
-                          // Çalışılan her tarih ayrı satır/segment olarak görünür ve
-                          // o gün kiminle çalışıldığı açıkça yazılır.
-                          LinearLayout segmentCard = card();
-                          segmentCard.setBackground(bg(Color.rgb(35,31,42), 18));
+                          if (visibleChains == 0) {
+                              LinearLayout emptyMonth = card();
+                              emptyMonth.addView(text(
+                                      monthLabels[selectedMonth] + " " + selectedYear + " içinde kayıt bulunmuyor.",
+                                      17, Color.rgb(240,236,246), true));
+                              emptyMonth.addView(text(
+                                      "Başka bir ay veya yıl seçerek kayıtlarını görüntüleyebilirsin.",
+                                      13, Color.rgb(170,165,180), false));
+                              resultContainer.addView(emptyMonth);
+                          }
+                      };
 
-                          segmentCard.addView(text(
-                                  a[1] + "  •  TREN " + a[3],
-                                  16, Color.rgb(245,243,250), true));
-
-                          segmentCard.addView(text(
-                                  "Kiminle  •  " + a[2],
-                                  14, Color.rgb(205,196,220), false));
-
-                          segmentCard.addView(text(
-                                  "Başlangıç  •  " + a[4],
-                                  13, Color.rgb(185,178,195), false));
-
-                          segmentCard.addView(text(
-                                  "Başlangıç tesellüm  •  " + a[5],
-                                  13, Color.rgb(170,165,180), false));
-
-                          if ("DONE".equals(status) && a.length >= 11) {
-                              segmentCard.addView(text("TAMAMLANDI", 12,
-                                      Color.rgb(180,205,190), true));
-
-                              segmentCard.addView(text(
-                                      "Bitiş  •  " + a[7] + " " + a[8],
-                                      13, Color.rgb(205,196,220), false));
-
-                              segmentCard.addView(text(
-                                      "Tesellüm  •  " + a[9],
-                                      13, Color.rgb(205,196,220), false));
-
-                              segmentCard.addView(text(
-                                      "Eve giriş  •  " + a[10] + "  (+30 dk)",
-                                      13, Color.rgb(180,205,190), false));
-                          } else if ("OPEN".equals(status)) {
-                              segmentCard.addView(text("DEVAM EDİYOR", 12,
-                                      Color.rgb(235,190,90), true));
+                      yearSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                          @Override
+                          public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                              render.run();
                           }
 
-                          chainCard.addView(segmentCard);
-                      }
+                          @Override
+                          public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+                      });
 
-                      root.addView(chainCard);
+                      monthSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                          @Override
+                          public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                              render.run();
+                          }
+
+                          @Override
+                          public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+                      });
+
+                      render.run();
                   }
 
                   Button back = action("Ana Sayfa", false);
@@ -1016,11 +1206,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.5.apk"
-          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.5.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.7.apk"
+          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.7.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: Puantaj-v0.5.5
-          path: ${{ github.workspace }}/Puantaj-v0.5.5.apk
+          name: Puantaj-v0.5.7
+          path: ${{ github.workspace }}/Puantaj-v0.5.7.apk
