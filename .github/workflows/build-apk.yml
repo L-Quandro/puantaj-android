@@ -8,13 +8,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Android projesini oluştur
         shell: bash
         run: |
           set -e
-
           mkdir -p puantaj/app/src/main/java/com/furkan/puantaj
           mkdir -p puantaj/app/src/main/res/values
 
@@ -52,22 +50,18 @@ jobs:
           plugins {
               id 'com.android.application'
           }
-
           android {
               namespace 'com.furkan.puantaj'
               compileSdk 35
-
               defaultConfig {
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 3
-                  versionName '0.3'
+                  versionCode 4
+                  versionName '0.4'
               }
           }
-
           dependencies {
-              implementation 'androidx.appcompat:appcompat:1.7.0'
               implementation 'com.google.android.material:material:1.12.0'
           }
           EOF
@@ -96,6 +90,11 @@ jobs:
           <resources>
               <style name="Theme.Puantaj" parent="Theme.Material3.DayNight.NoActionBar">
                   <item name="android:fontFamily">sans</item>
+                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:statusBarColor">#0F0D13</item>
+                  <item name="android:navigationBarColor">#0F0D13</item>
+                  <item name="colorPrimary">#7053AA</item>
+                  <item name="colorSecondary">#A98BD4</item>
               </style>
           </resources>
           EOF
@@ -108,277 +107,351 @@ jobs:
 
           cat > puantaj/app/src/main/java/com/furkan/puantaj/MainActivity.java <<'EOF'
           package com.furkan.puantaj;
-
+          
           import android.app.*;
           import android.os.Bundle;
           import android.content.*;
+          import android.graphics.Color;
+          import android.graphics.Typeface;
+          import android.graphics.drawable.GradientDrawable;
           import android.view.*;
           import android.widget.*;
           import com.google.android.material.textfield.TextInputEditText;
           import com.google.android.material.textfield.TextInputLayout;
           import java.text.SimpleDateFormat;
           import java.util.*;
-
+          
           public class MainActivity extends Activity {
               LinearLayout root;
               SharedPreferences prefs;
               ArrayList<String> records = new ArrayList<>();
-
+          
               String selectedStart = "";
               String selectedStartDate = "";
               String selectedFinish = "";
               String selectedFinishDate = "";
-
+          
               int dp(float v) {
                   return (int)(v * getResources().getDisplayMetrics().density + 0.5f);
               }
-
+          
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  prefs = getSharedPreferences("puantaj", MODE_PRIVATE);
+                  load();
+                  home();
+              }
+          
+              GradientDrawable bg(int color, float radius) {
+                  GradientDrawable g = new GradientDrawable();
+                  g.setColor(color);
+                  g.setCornerRadius(dp(radius));
+                  return g;
+              }
+          
+              TextView text(String s, float size, int color, boolean bold) {
+                  TextView t = new TextView(this);
+                  t.setText(s);
+                  t.setTextSize(size);
+                  t.setTextColor(color);
+                  t.setTypeface(Typeface.DEFAULT, bold ? Typeface.BOLD : Typeface.NORMAL);
+                  return t;
+              }
+          
               TextView title(String s) {
-                  TextView t = new TextView(this);
-                  t.setText(s);
-                  t.setTextSize(28);
-                  t.setTypeface(null, 1);
-                  t.setPadding(0, 0, 0, dp(18));
+                  TextView t = text(s, 30, Color.rgb(245,243,250), true);
+                  t.setPadding(0, 0, 0, dp(6));
                   return t;
               }
-
-              TextView info(String s) {
-                  TextView t = new TextView(this);
-                  t.setText(s);
-                  t.setTextSize(16);
-                  t.setPadding(0, dp(4), 0, dp(14));
+          
+              TextView subtitle(String s) {
+                  TextView t = text(s, 15, Color.rgb(170,165,180), false);
+                  t.setPadding(0, 0, 0, dp(22));
                   return t;
               }
-
-              Button button(String s) {
-                  Button b = new Button(this);
-                  b.setText(s);
-                  b.setAllCaps(false);
-                  b.setTextSize(16);
-                  b.setMinHeight(dp(52));
-                  b.setPadding(dp(8), dp(6), dp(8), dp(6));
-                  return b;
+          
+              TextView section(String s) {
+                  TextView t = text(s.toUpperCase(Locale.getDefault()), 12, Color.rgb(185,178,205), true);
+                  t.setLetterSpacing(.08f);
+                  t.setPadding(dp(4), dp(16), dp(4), dp(8));
+                  return t;
               }
-
+          
+              LinearLayout card() {
+                  LinearLayout c = new LinearLayout(this);
+                  c.setOrientation(LinearLayout.VERTICAL);
+                  c.setPadding(dp(16), dp(14), dp(16), dp(14));
+                  c.setBackground(bg(Color.rgb(29,26,35), 22));
+                  LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, -2);
+                  p.setMargins(0, 0, 0, dp(12));
+                  c.setLayoutParams(p);
+                  return c;
+              }
+          
               TextInputLayout field(String hint) {
                   TextInputLayout box = new TextInputLayout(this);
                   box.setHint(hint);
                   box.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE);
+                  box.setBoxCornerRadii(dp(14),dp(14),dp(14),dp(14));
+                  box.setBoxStrokeColor(Color.rgb(115,100,150));
+                  box.setHintTextColor(android.content.res.ColorStateList.valueOf(Color.rgb(170,165,180)));
                   box.setPadding(0, dp(4), 0, dp(8));
+          
                   TextInputEditText edit = new TextInputEditText(box.getContext());
                   edit.setSingleLine(true);
                   edit.setTextSize(17);
-                  box.addView(edit, new LinearLayout.LayoutParams(-1, -2));
+                  edit.setTextColor(Color.rgb(245,243,250));
+                  edit.setHintTextColor(Color.rgb(150,145,160));
+                  box.addView(edit, new LinearLayout.LayoutParams(-1, dp(54)));
                   return box;
               }
-
+          
               String value(TextInputLayout box) {
-                  TextInputEditText e = (TextInputEditText) box.getEditText();
+                  TextInputEditText e = (TextInputEditText)box.getEditText();
                   return e == null || e.getText() == null ? "" : e.getText().toString().trim();
               }
-
-              void page(String s) {
+          
+              Button action(String label, boolean primary) {
+                  Button b = new Button(this);
+                  b.setText(label);
+                  b.setTextSize(15);
+                  b.setTextColor(Color.rgb(248,246,252));
+                  b.setAllCaps(false);
+                  b.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                  b.setMinHeight(dp(52));
+                  b.setPadding(dp(10), 0, dp(10), 0);
+                  b.setBackground(bg(primary ? Color.rgb(112,83,170) : Color.rgb(45,41,52), 18));
+                  LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, dp(54));
+                  p.setMargins(0, dp(4), 0, dp(10));
+                  b.setLayoutParams(p);
+                  return b;
+              }
+          
+              Button choice(String label) {
+                  Button b = action(label, false);
+                  b.setTextSize(15);
+                  b.setGravity(Gravity.CENTER_VERTICAL);
+                  return b;
+              }
+          
+              void page(String heading, String desc) {
                   ScrollView scroll = new ScrollView(this);
+                  scroll.setFillViewport(true);
                   root = new LinearLayout(this);
                   root.setOrientation(LinearLayout.VERTICAL);
-                  root.setPadding(dp(20), dp(20), dp(20), dp(20));
+                  root.setPadding(dp(20), dp(24), dp(20), dp(28));
+                  root.setBackgroundColor(Color.rgb(15,13,19));
                   scroll.addView(root);
                   setContentView(scroll);
-                  root.addView(title(s));
+                  root.addView(title(heading));
+                  if (!desc.isEmpty()) root.addView(subtitle(desc));
               }
-
+          
               void home() {
-                  page("PUANTAJ");
-                  root.addView(info("Günlük görev kayıtlarını telefondan kolayca yönet."));
-
-                  Button n = button("Yeni Görev / Tren Al");
+                  page("PUANTAJ", "Günlük görevlerini hızlıca kaydet. Hesaplamaları uygulamaya bırak.");
+          
+                  LinearLayout hero = card();
+                  hero.setBackground(bg(Color.rgb(40,32,55), 24));
+                  hero.addView(text("Bugünün görevi", 13, Color.rgb(194,180,220), true));
+                  hero.addView(text(new SimpleDateFormat("EEEE, dd MMMM", new Locale("tr","TR")).format(new Date()), 22, Color.rgb(250,248,255), true));
+                  hero.addView(text(records.size() + " kayıt telefonda güvenle saklanıyor", 14, Color.rgb(175,168,185), false));
+                  root.addView(hero);
+          
+                  Button n = action("＋  Yeni Görev / Tren Al", true);
                   root.addView(n);
                   n.setOnClickListener(v -> newRecord());
-
-                  Button o = button("Devam Eden Kayıtlar");
+          
+                  Button o = action("↻  Devam Eden Kayıtlar", false);
                   root.addView(o);
                   o.setOnClickListener(v -> ongoing());
-
-                  Button m = button("Aylık Kayıtlar");
+          
+                  Button m = action("▦  Aylık Kayıtlar", false);
                   root.addView(m);
                   m.setOnClickListener(v -> monthly());
-
-                  root.addView(info("Görevi başlattıktan sonra uygulamayı kapatabilirsin."));
+          
+                  root.addView(section("Nasıl çalışır?"));
+                  LinearLayout help = card();
+                  help.addView(text("1  Görev alış / başlangıç saatini seç.", 14, Color.rgb(225,220,232), false));
+                  help.addView(text("2  Uygulamayı kapat; görev telefonda kalır.", 14, Color.rgb(225,220,232), false));
+                  help.addView(text("3  Bitiş saatini gir; eve giriş otomatik +30 dk.", 14, Color.rgb(225,220,232), false));
+                  root.addView(help);
               }
-
+          
               void newRecord() {
-                  page("Yeni Görev / Tren Al");
-
+                  page("Yeni Görev", "Puantaj satırını oluşturmak için bilgileri gir.");
+          
                   selectedStartDate = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(new Date());
                   selectedStart = "";
-
-                  Button dateButton = button("Tarih  •  " + selectedStartDate);
-                  root.addView(dateButton);
+          
+                  LinearLayout c = card();
+                  c.addView(section("Görev bilgileri"));
+          
+                  Button dateButton = choice("Tarih  •  " + selectedStartDate);
+                  c.addView(dateButton);
                   dateButton.setOnClickListener(v -> chooseDate(dateButton, true));
-
+          
                   TextInputLayout person = field("Kiminle gittin?");
-                  root.addView(person);
-
+                  c.addView(person);
+          
                   TextInputLayout train = field("Tren no");
-                  root.addView(train);
-
-                  Button startButton = button("Görev alış / başlangıç saati seç");
-                  root.addView(startButton);
+                  c.addView(train);
+          
+                  c.addView(section("Başlangıç"));
+          
+                  Button startButton = choice("Saat seç  •  Henüz seçilmedi");
+                  c.addView(startButton);
                   startButton.setOnClickListener(v -> chooseTime(startButton, true));
-
-                  Button save = button("Görevi Başlat ve Kaydet");
+          
+                  root.addView(c);
+          
+                  Button save = action("Görevi Başlat ve Kaydet", true);
                   root.addView(save);
                   save.setOnClickListener(v -> {
                       if (value(person).isEmpty() || value(train).isEmpty() || selectedStart.isEmpty()) {
                           Toast.makeText(this, "Kiminle, tren no ve başlangıç saati gerekli.", Toast.LENGTH_LONG).show();
                           return;
                       }
-
-                      String record =
-                              UUID.randomUUID() + "|" +
-                              selectedStartDate + "|" +
-                              value(person) + "|" +
-                              value(train) + "|" +
-                              selectedStart + "|OPEN";
-
+                      String record = UUID.randomUUID() + "|" + selectedStartDate + "|" +
+                              value(person) + "|" + value(train) + "|" + selectedStart + "|OPEN";
                       records.add(record);
                       persist();
-                      Toast.makeText(this, "Görev kaydedildi. Uygulamayı kapatabilirsin.", Toast.LENGTH_LONG).show();
+                      Toast.makeText(this, "Kayıt oluşturuldu. Uygulamayı kapatabilirsin.", Toast.LENGTH_SHORT).show();
                       home();
                   });
-
-                  Button cancel = button("Vazgeç");
+          
+                  Button cancel = action("Vazgeç", false);
                   root.addView(cancel);
                   cancel.setOnClickListener(v -> home());
               }
-
+          
               void chooseDate(Button target, boolean start) {
                   Calendar c = Calendar.getInstance();
-                  if (start && !selectedStartDate.isEmpty()) {
+                  String base = start ? selectedStartDate : selectedFinishDate;
+                  if (base != null && !base.isEmpty()) {
                       try {
-                          Date d = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).parse(selectedStartDate);
+                          Date d = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).parse(base);
                           if (d != null) c.setTime(d);
                       } catch (Exception ignored) {}
                   }
-
-                  DatePickerDialog d = new DatePickerDialog(
-                      this,
+          
+                  DatePickerDialog d = new DatePickerDialog(this,
                       (view, year, month, day) -> {
-                          String value = String.format(Locale.getDefault(), "%02d.%02d.%04d", day, month + 1, year);
+                          String v = String.format(Locale.getDefault(), "%02d.%02d.%04d", day, month + 1, year);
                           if (start) {
-                              selectedStartDate = value;
-                              target.setText("Tarih  •  " + value);
+                              selectedStartDate = v;
+                              target.setText("Tarih  •  " + v);
                           } else {
-                              selectedFinishDate = value;
-                              target.setText("Görev bitiş tarihi  •  " + value);
+                              selectedFinishDate = v;
+                              target.setText("Görev bitiş tarihi  •  " + v);
                           }
-                      },
-                      c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)
-                  );
+                      }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH));
                   d.show();
               }
-
+          
               void chooseTime(Button target, boolean start) {
                   Calendar c = Calendar.getInstance();
-                  TimePickerDialog d = new TimePickerDialog(
-                      this,
+                  TimePickerDialog d = new TimePickerDialog(this,
                       (view, hour, minute) -> {
-                          String value = String.format(Locale.getDefault(), "%02d:%02d", hour, minute);
+                          String v = String.format(Locale.getDefault(), "%02d:%02d", hour, minute);
                           if (start) {
-                              selectedStart = value;
-                              target.setText("Görev alış / başlangıç  •  " + value);
+                              selectedStart = v;
+                              target.setText("Saat seçildi  •  " + v);
                           } else {
-                              selectedFinish = value;
-                              target.setText("Görev bitiş / teslim  •  " + value);
+                              selectedFinish = v;
+                              target.setText("Görev bitiş / teslim  •  " + v);
                           }
-                      },
-                      c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true
-                  );
+                      }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true);
                   d.show();
               }
-
+          
               void ongoing() {
-                  page("Devam Eden Kayıtlar");
+                  page("Devam Eden", "Tamamlanmamış görevlerin burada.");
+          
                   boolean found = false;
-
                   for (String r : new ArrayList<>(records)) {
-                      if (r.endsWith("|OPEN")) {
-                          found = true;
-                          String[] a = r.split("\\|", -1);
-                          Button b = button(a[1] + "  •  Tren " + a[3] + "  •  " + a[2]);
-                          root.addView(b);
-                          b.setOnClickListener(v -> complete(r));
-                      }
+                      if (!r.endsWith("|OPEN")) continue;
+                      found = true;
+                      String[] a = r.split("\\|", -1);
+                      LinearLayout c = card();
+                      c.addView(text("TREN " + a[3], 18, Color.rgb(245,243,250), true));
+                      c.addView(text(a[1] + "  •  " + a[2], 14, Color.rgb(175,168,185), false));
+                      c.addView(text("Başlangıç  " + a[4], 14, Color.rgb(205,196,220), false));
+                      Button b = action("Görevi tamamla  →", true);
+                      c.addView(b);
+                      root.addView(c);
+                      b.setOnClickListener(v -> complete(r));
                   }
-
-                  if (!found) root.addView(info("Devam eden kayıt yok."));
-
-                  Button back = button("Ana Sayfa");
+          
+                  if (!found) {
+                      LinearLayout empty = card();
+                      empty.addView(text("Aktif görev yok", 18, Color.rgb(240,236,246), true));
+                      empty.addView(text("Yeni bir görev başlattığında burada görünecek.", 14, Color.rgb(170,165,180), false));
+                      root.addView(empty);
+                  }
+          
+                  Button back = action("Ana Sayfa", false);
                   root.addView(back);
                   back.setOnClickListener(v -> home());
               }
-
+          
               void complete(String r) {
                   String[] a = r.split("\\|", -1);
-
-                  page("Görevi Tamamla");
-                  root.addView(info(
-                      "Tarih: " + a[1] +
-                      "\nTren: " + a[3] +
-                      "\nKiminle: " + a[2] +
-                      "\nGörev alış / başlangıç: " + a[4]
-                  ));
-
+                  page("Görevi Tamamla", "Sadece bitiş bilgisini gir. Eve giriş +30 dakika hesaplanır.");
+          
+                  LinearLayout summary = card();
+                  summary.addView(text("TREN " + a[3], 20, Color.rgb(245,243,250), true));
+                  summary.addView(text(a[2], 14, Color.rgb(190,182,200), false));
+                  summary.addView(text("Başlangıç  " + a[4] + "  •  " + a[1], 14, Color.rgb(205,196,220), false));
+                  root.addView(summary);
+          
                   selectedFinish = "";
-                  selectedFinishDate = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(new Date());
-
-                  Button finishDate = button("Görev bitiş tarihi  •  " + selectedFinishDate);
-                  root.addView(finishDate);
+                  selectedFinishDate = a[1];
+          
+                  LinearLayout c = card();
+                  c.addView(section("Görev bitiş"));
+          
+                  Button finishDate = choice("Görev bitiş tarihi  •  " + selectedFinishDate);
+                  c.addView(finishDate);
                   finishDate.setOnClickListener(v -> chooseDate(finishDate, false));
-
-                  Button finishButton = button("Görev bitiş / teslim saati seç");
-                  root.addView(finishButton);
+          
+                  Button finishButton = choice("Bitiş saati seç  •  Henüz seçilmedi");
+                  c.addView(finishButton);
                   finishButton.setOnClickListener(v -> chooseTime(finishButton, false));
-
+          
                   TextInputLayout owner = field("Teslim / tesellüm sahibi");
-                  root.addView(owner);
-
-                  TextView automatic = info("Eve giriş: Görev bitişinden otomatik olarak +30 dakika");
-                  root.addView(automatic);
-
-                  Button save = button("Görevi Tamamla");
+                  c.addView(owner);
+          
+                  LinearLayout auto = card();
+                  auto.setBackground(bg(Color.rgb(33,28,43), 18));
+                  auto.addView(text("OTOMATİK", 11, Color.rgb(183,161,220), true));
+                  auto.addView(text("Eve giriş  =  görev bitişi + 30 dakika", 15, Color.rgb(235,230,242), true));
+                  c.addView(auto);
+          
+                  root.addView(c);
+          
+                  Button save = action("✓  Görevi Tamamla", true);
                   root.addView(save);
-
                   save.setOnClickListener(v -> {
-                      if (selectedFinish.isEmpty() || selectedFinishDate.isEmpty()) {
-                          Toast.makeText(this, "Görev bitiş tarihi ve saatini seç.", Toast.LENGTH_LONG).show();
+                      if (selectedFinish.isEmpty()) {
+                          Toast.makeText(this, "Görev bitiş saatini seç.", Toast.LENGTH_LONG).show();
                           return;
                       }
-
+          
                       String arrival = addThirtyMinutes(selectedFinishDate, selectedFinish);
-
-                      String newRecord =
-                          r.replace(
-                              "|OPEN",
-                              "|DONE|" +
-                              selectedFinishDate + "|" +
-                              selectedFinish + "|" +
-                              value(owner) + "|" +
-                              arrival
-                          );
-
+                      String newRecord = r.replace("|OPEN", "|DONE|" + selectedFinishDate + "|" +
+                              selectedFinish + "|" + value(owner) + "|" + arrival);
                       records.set(records.indexOf(r), newRecord);
                       persist();
-
-                      Toast.makeText(this, "Görev tamamlandı. Eve giriş: " + arrival, Toast.LENGTH_LONG).show();
+                      Toast.makeText(this, "Görev tamamlandı • Eve giriş " + arrival, Toast.LENGTH_LONG).show();
                       home();
                   });
-
-                  Button cancel = button("Vazgeç");
+          
+                  Button cancel = action("Vazgeç", false);
                   root.addView(cancel);
                   cancel.setOnClickListener(v -> ongoing());
               }
-
+          
               String addThirtyMinutes(String date, String time) {
                   try {
                       SimpleDateFormat f = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
@@ -390,32 +463,44 @@ jobs:
                   } catch (Exception ignored) {}
                   return date + " " + time;
               }
-
+          
               void monthly() {
-                  page("Aylık Kayıtlar");
-                  if (records.isEmpty()) root.addView(info("Henüz kayıt yok."));
-
+                  page("Aylık Kayıtlar", "Telefonda saklanan görevlerin özeti.");
+          
+                  if (records.isEmpty()) {
+                      LinearLayout empty = card();
+                      empty.addView(text("Henüz kayıt yok.", 18, Color.rgb(240,236,246), true));
+                      root.addView(empty);
+                  }
+          
                   for (String r : records) {
                       String[] a = r.split("\\|", -1);
-                      if (a.length >= 4) {
-                          root.addView(info(
-                              a[1] + "  •  Tren " + a[3] +
-                              "  •  " + a[2] +
-                              "  •  " + (r.endsWith("|OPEN") ? "Devam ediyor" : "Tamamlandı")
-                          ));
+                      if (a.length < 5) continue;
+          
+                      LinearLayout c = card();
+                      c.addView(text(a[1] + "  •  TREN " + a[3], 17, Color.rgb(245,243,250), true));
+                      c.addView(text(a[2] + "  •  Başlangıç " + a[4], 14, Color.rgb(185,178,195), false));
+          
+                      if (r.endsWith("|OPEN")) {
+                          c.addView(text("DEVAM EDİYOR", 12, Color.rgb(235,190,90), true));
+                      } else if (a.length >= 10) {
+                          c.addView(text("Bitiş " + a[6] + "  •  Eve giriş " + a[8], 14, Color.rgb(180,205,190), false));
+                      } else {
+                          c.addView(text("TAMAMLANDI", 12, Color.rgb(180,205,190), true));
                       }
+                      root.addView(c);
                   }
-
-                  Button back = button("Ana Sayfa");
+          
+                  Button back = action("Ana Sayfa", false);
                   root.addView(back);
                   back.setOnClickListener(v -> home());
               }
-
+          
               void load() {
                   String all = prefs.getString("records", "");
                   if (!all.isEmpty()) records.addAll(Arrays.asList(all.split("\\n", -1)));
               }
-
+          
               void persist() {
                   StringBuilder out = new StringBuilder();
                   for (String r : records) {
@@ -429,10 +514,10 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.3.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.4.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: Puantaj-v0.3
-          path: Puantaj-v0.3.apk
+          name: Puantaj-v0.4
+          path: Puantaj-v0.4.apk
