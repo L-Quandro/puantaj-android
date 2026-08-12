@@ -1,4 +1,4 @@
-name: Puantaj APK v0.5.1
+name: Puantaj APK v0.5.2
 
 on:
   push:
@@ -57,8 +57,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 6
-                  versionName '0.5.1'
+                  versionCode 7
+                  versionName '0.5.2'
               }
           }
           dependencies {
@@ -296,6 +296,34 @@ jobs:
           
                   TextInputLayout train = field("Tren no");
                   c.addView(train);
+
+                  c.addView(section("Hazır tren seçenekleri"));
+                  LinearLayout trainButtons = new LinearLayout(this);
+                  trainButtons.setOrientation(LinearLayout.HORIZONTAL);
+
+                  Button outbound = choice("Gidiş trenleri");
+                  Button returnTrain = choice("Dönüş trenleri");
+                  outbound.setTextSize(13);
+                  returnTrain.setTextSize(13);
+                  LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(0, dp(52), 1f);
+                  half.setMargins(0, 0, dp(6), dp(8));
+                  outbound.setLayoutParams(half);
+                  LinearLayout.LayoutParams half2 = new LinearLayout.LayoutParams(0, dp(52), 1f);
+                  half2.setMargins(dp(6), 0, 0, dp(8));
+                  returnTrain.setLayoutParams(half2);
+                  trainButtons.addView(outbound);
+                  trainButtons.addView(returnTrain);
+                  c.addView(trainButtons);
+
+                  outbound.setOnClickListener(v -> chooseTrain(train, new String[]{
+                          "23201", "23202", "23205", "23207"
+                  }, "Gidiş trenini seç"));
+                  returnTrain.setOnClickListener(v -> chooseTrain(train, new String[]{
+                          "13102", "13104", "13106", "13108", "53503"
+                  }, "Dönüş trenini seç"));
+
+                  c.addView(text("İstersen hazır seçeneklerden seçebilir veya Tren no alanına manuel yazabilirsin.",
+                          12, Color.rgb(155,148,165), false));
           
                   c.addView(section("Başlangıç"));
 
@@ -505,11 +533,12 @@ jobs:
               void continueFromHotel(String r) {
                   String[] a = r.split("\\|", -1);
 
-                  page("Treni Devam Ettir", "Aynı tren ve görev zinciri devam eder. Yeni başlangıç bilgilerini gir.");
+                  page("Treni Devam Ettir", "Aynı görev zincirini sürdür. Kişi ve tren değişebileceği için ikisini de burada seçebilirsin.");
 
                   LinearLayout summary = card();
+                  summary.addView(text("ÖNCEKİ SEGMENT", 11, Color.rgb(183,161,220), true));
                   summary.addView(text("TREN " + a[3], 20, Color.rgb(245,243,250), true));
-                  summary.addView(text(a[2] + "  •  Aynı görev zinciri", 14, Color.rgb(190,182,200), false));
+                  summary.addView(text(a[2] + "  •  Önceki görev", 14, Color.rgb(190,182,200), false));
                   summary.addView(text("Otele teslim  •  " + a[7] + " " + a[8], 14, Color.rgb(205,196,220), false));
                   summary.addView(text("Otele varış  •  " + a[10] + "  (+30 dk çalışma)", 13, Color.rgb(175,168,185), false));
                   root.addView(summary);
@@ -528,6 +557,56 @@ jobs:
                   c.addView(startButton);
                   startButton.setOnClickListener(v -> chooseTime(startButton, true));
 
+                  TextInputLayout train = field("Tren no");
+                  TextInputEditText trainEdit = (TextInputEditText) train.getEditText();
+                  if (trainEdit != null) trainEdit.setText(a[3]);
+                  c.addView(train);
+
+                  c.addView(section("Tren seçimi"));
+                  LinearLayout trainButtons = new LinearLayout(this);
+                  trainButtons.setOrientation(LinearLayout.HORIZONTAL);
+
+                  Button outbound = choice("Gidiş trenleri");
+                  Button returnTrain = choice("Dönüş trenleri");
+                  outbound.setTextSize(13);
+                  returnTrain.setTextSize(13);
+
+                  LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(0, dp(52), 1f);
+                  half.setMargins(0, 0, dp(6), dp(8));
+                  outbound.setLayoutParams(half);
+                  LinearLayout.LayoutParams half2 = new LinearLayout.LayoutParams(0, dp(52), 1f);
+                  half2.setMargins(dp(6), 0, 0, dp(8));
+                  returnTrain.setLayoutParams(half2);
+                  trainButtons.addView(outbound);
+                  trainButtons.addView(returnTrain);
+                  c.addView(trainButtons);
+
+                  outbound.setOnClickListener(v -> chooseTrain(train, new String[]{
+                          "23201", "23202", "23205", "23207"
+                  }, "Gidiş trenini seç"));
+                  returnTrain.setOnClickListener(v -> chooseTrain(train, new String[]{
+                          "13102", "13104", "13106", "13108", "53503"
+                  }, "Dönüş trenini seç"));
+
+                  c.addView(text("Manuel değiştirmek için Tren no alanını doğrudan düzenleyebilirsin.",
+                          12, Color.rgb(155,148,165), false));
+
+                  CheckBox samePerson = new CheckBox(this);
+                  samePerson.setText("Aynı kişiyle devam ediyorum  •  " + a[2]);
+                  samePerson.setTextSize(15);
+                  samePerson.setTextColor(Color.rgb(235,230,242));
+                  samePerson.setChecked(true);
+                  samePerson.setButtonTintList(android.content.res.ColorStateList.valueOf(Color.rgb(169,139,212)));
+                  c.addView(samePerson);
+
+                  TextInputLayout person = field("Kiminle gittin?");
+                  c.addView(person);
+                  person.setVisibility(View.GONE);
+
+                  samePerson.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                      person.setVisibility(isChecked ? View.GONE : View.VISIBLE);
+                  });
+
                   TextInputLayout owner = field("Teslim / tesellüm sahibi");
                   c.addView(owner);
 
@@ -536,14 +615,19 @@ jobs:
                   Button save = action("✓  Treni Devam Ettir", true);
                   root.addView(save);
                   save.setOnClickListener(v -> {
-                      if (selectedStart.isEmpty() || value(owner).isEmpty()) {
-                          Toast.makeText(this, "Başlangıç saati ve teslim/tesellüm sahibi gerekli.", Toast.LENGTH_LONG).show();
+                      String chosenPerson = samePerson.isChecked() ? a[2] : value(person);
+                      String chosenTrain = value(train);
+                      String chosenOwner = value(owner);
+
+                      if (selectedStart.isEmpty() || chosenPerson.isEmpty() || chosenTrain.isEmpty() || chosenOwner.isEmpty()) {
+                          Toast.makeText(this, "Başlangıç saati, tren no, kiminle gittiğin ve teslim/tesellüm sahibi gerekli.", Toast.LENGTH_LONG).show();
                           return;
                       }
 
                       String chainId = a[0];
-                      String newRecord = chainId + "|" + selectedStartDate + "|" + a[2] + "|" + a[3] + "|" +
-                              selectedStart + "|" + value(owner) + "|OPEN";
+                      String newRecord = chainId + "|" + selectedStartDate + "|" + chosenPerson + "|" + chosenTrain + "|" +
+                              selectedStart + "|" + chosenOwner + "|OPEN";
+
                       int oldIndex = records.indexOf(r);
                       String closedHotel = r.replace("|HOTEL|", "|HOTEL_DONE|");
                       if (oldIndex >= 0) {
@@ -552,13 +636,36 @@ jobs:
                       records.add(newRecord);
                       persist();
 
-                      Toast.makeText(this, "Tren devam kaydı oluşturuldu.", Toast.LENGTH_SHORT).show();
+                      Toast.makeText(this, "Tren devam kaydı oluşturuldu. " + chosenTrain + " • " + chosenPerson,
+                              Toast.LENGTH_SHORT).show();
                       home();
                   });
 
                   Button cancel = action("Vazgeç", false);
                   root.addView(cancel);
                   cancel.setOnClickListener(v -> ongoing());
+              }
+
+              void chooseTrain(TextInputLayout target, String[] trains, String titleText) {
+                  String current = value(target);
+                  int checked = -1;
+                  for (int i = 0; i < trains.length; i++) {
+                      if (trains[i].equals(current)) {
+                          checked = i;
+                          break;
+                      }
+                  }
+
+                  AlertDialog dialog = new AlertDialog.Builder(this)
+                          .setTitle(titleText)
+                          .setSingleChoiceItems(trains, checked, (d, which) -> {
+                              TextInputEditText e = target.getEditText();
+                              if (e != null) e.setText(trains[which]);
+                              d.dismiss();
+                          })
+                          .setNegativeButton("İptal", null)
+                          .create();
+                  dialog.show();
               }
 
               String addThirtyMinutes(String date, String time) {
@@ -706,10 +813,10 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.4.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.2.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: Puantaj-v0.4
-          path: Puantaj-v0.4.apk
+          name: Puantaj-v0.5.2
+          path: Puantaj-v0.5.2.apk
