@@ -426,7 +426,6 @@ jobs:
               }
           }
           EOF
-          EOF
 
           cd puantaj
           gradle assembleDebug
