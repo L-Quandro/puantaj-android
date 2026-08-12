@@ -1,4 +1,4 @@
-name: Puantaj APK
+name: Puantaj APK v0.5.1
 
 on:
   push:
@@ -57,8 +57,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 5
-                  versionName '0.5'
+                  versionCode 6
+                  versionName '0.5.1'
               }
           }
           dependencies {
@@ -609,18 +609,7 @@ jobs:
                       }
                   } catch (Exception ignored) {}
               }
-              String addThirtyMinutes(String date, String time) {
-                  try {
-                      SimpleDateFormat f = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
-                      Date d = f.parse(date + " " + time);
-                      if (d != null) {
-                          d = new Date(d.getTime() + 30L * 60L * 1000L);
-                          return new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()).format(d);
-                      }
-                  } catch (Exception ignored) {}
-                  return date + " " + time;
-              }
-          
+               
               void monthly() {
                   page("Aylık Kayıtlar", "Görev, otel/bekleme ve devam segmentleri burada görünür.");
 
