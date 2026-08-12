@@ -1,4 +1,4 @@
-name: Puantaj APK v0.5.2
+name: Puantaj APK v0.5.3
 
 on:
   push:
@@ -57,8 +57,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 7
-                  versionName '0.5.2'
+                  versionCode 8
+                  versionName '0.5.3'
               }
           }
           dependencies {
@@ -659,7 +659,7 @@ jobs:
                   AlertDialog dialog = new AlertDialog.Builder(this)
                           .setTitle(titleText)
                           .setSingleChoiceItems(trains, checked, (d, which) -> {
-                              TextInputEditText e = target.getEditText();
+                              EditText e = target.getEditText();
                               if (e != null) e.setText(trains[which]);
                               d.dismiss();
                           })
@@ -813,10 +813,10 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.2.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.3.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: Puantaj-v0.5.2
-          path: Puantaj-v0.5.2.apk
+          name: Puantaj-v0.5.3
+          path: Puantaj-v0.5.3.apk
