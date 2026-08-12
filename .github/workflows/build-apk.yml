@@ -1,4 +1,4 @@
-name: Puantaj APK v0.5.3
+name: Puantaj APK v0.5.4
 
 on:
   push:
@@ -813,10 +813,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.3.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.4.apk"
+          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.4.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: Puantaj-v0.5.3
-          path: Puantaj-v0.5.3.apk
+          name: Puantaj-v0.5.4
+          path: ${{ github.workspace }}/Puantaj-v0.5.4.apk
