@@ -1,4 +1,4 @@
-name: Puantaj APK v0.5.8
+name: Puantaj APK v0.5.9
 
 on:
   push:
@@ -57,8 +57,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 12
-                  versionName '0.5.8'
+                  versionCode 13
+                  versionName '0.5.9'
               }
           }
           dependencies {
@@ -130,6 +130,7 @@ jobs:
               String selectedStartDate = "";
               String selectedFinish = "";
               String selectedFinishDate = "";
+              String currentPage = "home";
           
               int dp(float v) {
                   return (int)(v * getResources().getDisplayMetrics().density + 0.5f);
@@ -140,7 +141,29 @@ jobs:
                   super.onCreate(savedInstanceState);
                   prefs = getSharedPreferences("puantaj", MODE_PRIVATE);
                   load();
+                  if (android.os.Build.VERSION.SDK_INT >= 33) {
+                      getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                              android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                              this::navigateBack);
+                  }
                   home();
+              }
+
+              @Override
+              public void onBackPressed() {
+                  navigateBack();
+              }
+
+              void navigateBack() {
+                  if ("home".equals(currentPage)) {
+                      super.onBackPressed();
+                      return;
+                  }
+                  if ("complete".equals(currentPage) || "continue".equals(currentPage)) {
+                      ongoing();
+                  } else {
+                      home();
+                  }
               }
           
               GradientDrawable bg(int color, float radius) {
@@ -249,13 +272,19 @@ jobs:
               }
           
               void home() {
+                  currentPage = "home";
                   page("PUANTAJ", "Günlük görevlerini hızlıca kaydet. Hesaplamaları uygulamaya bırak.");
           
                   LinearLayout hero = card();
                   hero.setBackground(bg(Color.rgb(40,32,55), 24));
                   hero.addView(text("Bugünün görevi", 13, Color.rgb(194,180,220), true));
                   hero.addView(text(new SimpleDateFormat("EEEE, dd MMMM", new Locale("tr","TR")).format(new Date()), 22, Color.rgb(250,248,255), true));
-                  hero.addView(text(records.size() + " kayıt telefonda güvenle saklanıyor", 14, Color.rgb(175,168,185), false));
+                  java.util.HashSet<String> serviceChains = new java.util.HashSet<>();
+                  for (String r : records) {
+                      String[] a = r.split("\\|", -1);
+                      if (a.length >= 1 && !a[0].trim().isEmpty()) serviceChains.add(a[0]);
+                  }
+                  hero.addView(text(serviceChains.size() + " servis kaydı telefonda güvenle saklanıyor", 14, Color.rgb(175,168,185), false));
                   root.addView(hero);
           
                   Button n = action("＋  Yeni Görev / Tren Al", true);
@@ -279,6 +308,7 @@ jobs:
               }
           
               void newRecord() {
+                  currentPage = "newRecord";
                   page("Yeni Görev", "Puantaj satırını oluşturmak için bilgileri gir.");
           
                   selectedStartDate = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(new Date());
@@ -400,6 +430,7 @@ jobs:
               }
           
               void ongoing() {
+                  currentPage = "ongoing";
                   page("Devam Eden", "Tamamlanmamış veya otelde devam eden görevler.");
 
                   boolean found = false;
@@ -447,6 +478,7 @@ jobs:
               }
 
               void complete(String r) {
+                  currentPage = "complete";
                   String[] a = r.split("\\|", -1);
                   page("Görevi Sonlandır", "Bitişte eve giriş otomatik +30 dakika. Otelde kalacaksan görevi devam ettirebilirsin.");
 
@@ -531,6 +563,7 @@ jobs:
               }
 
               void continueFromHotel(String r) {
+                  currentPage = "continue";
                   String[] a = r.split("\\|", -1);
 
                   page("Treni Devam Ettir", "Aynı görev zincirini sürdür. Kişi ve tren değişebileceği için ikisini de burada seçebilirsin.");
@@ -731,6 +764,7 @@ jobs:
               }
                
               void monthly() {
+                  currentPage = "monthly";
                   page("Aylık Kayıtlar", "Yıl ve ay seçerek kayıtlarını düzenli şekilde görüntüle.");
 
                   if (records.isEmpty()) {
@@ -1189,11 +1223,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.8.apk"
-          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.8.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.9.apk"
+          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.9.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: Puantaj-v0.5.8
-          path: ${{ github.workspace }}/Puantaj-v0.5.8.apk
+          name: Puantaj-v0.5.9
+          path: ${{ github.workspace }}/Puantaj-v0.5.9.apk
