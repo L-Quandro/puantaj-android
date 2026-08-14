@@ -1,4 +1,4 @@
-name: Puantaj APK v0.5.22
+name: Puantaj APK v0.5.23
 
 on:
   push:
@@ -69,8 +69,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 25
-                  versionName '0.5.22'
+                  versionCode 26
+                  versionName '0.5.23'
               }
           }
           dependencies {
@@ -100,27 +100,46 @@ jobs:
           </manifest>
           EOF
 
+          # KRITIK IKON DÜZELTMESİ:
+          # Önceki sürüm PNG'yi adaptive-icon'un BACKGROUND katmanına koyuyordu.
+          # Android launcher bu katmanı adaptive-icon viewport'una göre büyüttüğü için
+          # PNG'nin üstündeki tren ve altındaki PUANTAJ yazısı maskenin dışına taşıyordu.
+          #
+          # PNG dosyasına dokunmuyoruz. Kaynak dosya aynen kalıyor.
+          # PNG'yi FOREGROUND katmanına, adaptive-icon güvenli alanına sığacak şekilde
+          # %18 inset ile yerleştiriyoruz. Böylece görselin tamamı görünür; beyaz
+          # legacy-icon çerçevesi de oluşmaz.
           cat > puantaj/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-              <background android:drawable="@drawable/puantaj_icon" />
-              <foreground android:drawable="@drawable/puantaj_icon_transparent" />
+              <background android:drawable="@color/puantaj_icon_background" />
+              <foreground android:drawable="@drawable/puantaj_icon_foreground" />
           </adaptive-icon>
           EOF
 
           cat > puantaj/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-              <background android:drawable="@drawable/puantaj_icon" />
-              <foreground android:drawable="@drawable/puantaj_icon_transparent" />
+              <background android:drawable="@color/puantaj_icon_background" />
+              <foreground android:drawable="@drawable/puantaj_icon_foreground" />
           </adaptive-icon>
           EOF
 
-          cat > puantaj/app/src/main/res/drawable/puantaj_icon_transparent.xml <<'EOF'
+          cat > puantaj/app/src/main/res/drawable/puantaj_icon_foreground.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-              <solid android:color="@android:color/transparent" />
-          </shape>
+          <inset xmlns:android="http://schemas.android.com/apk/res/android"
+              android:inset="20%">
+              <bitmap
+                  android:src="@drawable/puantaj_icon"
+                  android:gravity="fill" />
+          </inset>
+          EOF
+
+          cat > puantaj/app/src/main/res/values/colors.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="puantaj_icon_background">#0F0D13</color>
+          </resources>
           EOF
 
           cat > puantaj/app/src/main/res/values/styles.xml <<'EOF'
@@ -1763,11 +1782,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.22.apk"
-          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.22.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.23.apk"
+          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.23.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: Puantaj-v0.5.22
-          path: ${{ github.workspace }}/Puantaj-v0.5.22.apk
+          name: Puantaj-v0.5.23
+          path: ${{ github.workspace }}/Puantaj-v0.5.23.apk
