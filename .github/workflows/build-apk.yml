@@ -1,4 +1,4 @@
-name: Puantaj APK v0.5.11
+name: Puantaj APK v0.5.12
 
 on:
   push:
@@ -57,8 +57,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 15
-                  versionName '0.5.11'
+                  versionCode 16
+                  versionName '0.5.12'
               }
           }
           dependencies {
@@ -131,6 +131,122 @@ jobs:
               String selectedFinish = "";
               String selectedFinishDate = "";
               String currentPage = "home";
+
+              static final String DEFAULT_PEOPLE = "Hazım|Ender|Yücel|Emirhan|Melike";
+
+              ArrayList<String> ownerList() {
+                  String raw = prefs.getString("owner_list", DEFAULT_PEOPLE);
+                  ArrayList<String> list = new ArrayList<>();
+                  for (String x : raw.split("\\|", -1)) {
+                      x = x.trim();
+                      if (!x.isEmpty() && !list.contains(x)) list.add(x);
+                  }
+                  if (list.isEmpty()) {
+                      for (String x : DEFAULT_PEOPLE.split("\\|", -1)) list.add(x);
+                  }
+                  return list;
+              }
+
+              void saveOwnerList(ArrayList<String> list) {
+                  StringBuilder b = new StringBuilder();
+                  for (String x : list) {
+                      if (b.length() > 0) b.append("|");
+                      b.append(x.replace("|", ""));
+                  }
+                  prefs.edit().putString("owner_list", b.toString()).apply();
+              }
+
+              boolean useOwnerList() {
+                  return prefs.getBoolean("use_owner_list", true);
+              }
+
+              boolean autoContinuePerson() {
+                  return prefs.getBoolean("auto_continue_person", true);
+              }
+
+              String defaultOwner() {
+                  if (!useOwnerList()) return "";
+                  String selected = prefs.getString("default_owner", "");
+                  if (selected.isEmpty()) return "";
+                  return ownerList().contains(selected) ? selected : "";
+              }
+
+              void rememberOwner(String owner) {
+                  if (owner != null && !owner.trim().isEmpty()) {
+                      prefs.edit().putString("last_owner", owner.trim()).apply();
+                  }
+              }
+
+              class OwnerPicker {
+                  final TextInputLayout input;
+                  final CheckBox manual;
+                  final Button chooser;
+                  String selected = "";
+
+                  OwnerPicker(LinearLayout parent, String label) {
+                      chooser = choice(label + "  •  Seç");
+                      parent.addView(chooser);
+                      manual = new CheckBox(MainActivity.this);
+                      manual.setText("Manuel farklı isim gireceğim");
+                      manual.setTextSize(14);
+                      manual.setTextColor(Color.rgb(225,220,232));
+                      manual.setButtonTintList(android.content.res.ColorStateList.valueOf(Color.rgb(169,139,212)));
+                      parent.addView(manual);
+
+                      input = field(label);
+                      parent.addView(input);
+                      input.setVisibility(View.GONE);
+
+                      String initial = defaultOwner();
+                      if (initial.isEmpty()) initial = prefs.getString("last_owner", "");
+                      if (useOwnerList() && ownerList().contains(initial)) {
+                          selected = initial;
+                          chooser.setText(label + "  •  " + selected);
+                      }
+
+                      chooser.setOnClickListener(v -> {
+                          if (!useOwnerList()) {
+                              manual.setChecked(true);
+                              return;
+                          }
+                          ArrayList<String> list = ownerList();
+                          String[] items = list.toArray(new String[0]);
+                          int checked = list.indexOf(selected);
+                          new AlertDialog.Builder(MainActivity.this)
+                                  .setTitle(label)
+                                  .setSingleChoiceItems(items, checked, (d, which) -> {
+                                      selected = items[which];
+                                      chooser.setText(label + "  •  " + selected);
+                                      manual.setChecked(false);
+                                      d.dismiss();
+                                  })
+                                  .setNegativeButton("İptal", null)
+                                  .show();
+                      });
+
+                      manual.setOnCheckedChangeListener((buttonView, checked) -> {
+                          input.setVisibility(checked ? View.VISIBLE : View.GONE);
+                          if (checked) input.getEditText().setText("");
+                      });
+                  }
+
+                  String value() {
+                      if (manual.isChecked()) return MainActivity.this.value(input);
+                      return selected == null ? "" : selected;
+                  }
+
+                  void setValue(String value) {
+                      if (value == null) value = "";
+                      if (useOwnerList() && ownerList().contains(value)) {
+                          selected = value;
+                          chooser.setText(input.getHint() + "  •  " + selected);
+                          manual.setChecked(false);
+                      } else {
+                          manual.setChecked(true);
+                          input.getEditText().setText(value);
+                      }
+                  }
+              }
           
               int dp(float v) {
                   return (int)(v * getResources().getDisplayMetrics().density + 0.5f);
@@ -298,6 +414,10 @@ jobs:
                   Button m = action("▦  Aylık Kayıtlar", false);
                   root.addView(m);
                   m.setOnClickListener(v -> monthly());
+
+                  Button settings = action("⚙  Ayarlar", false);
+                  root.addView(settings);
+                  settings.setOnClickListener(v -> settings());
           
                   root.addView(section("Nasıl çalışır?"));
                   LinearLayout help = card();
@@ -357,8 +477,7 @@ jobs:
           
                   c.addView(section("Başlangıç"));
 
-                  TextInputLayout owner = field("Teslim / tesellüm sahibi");
-                  c.addView(owner);
+                  OwnerPicker ownerPicker = new OwnerPicker(c, "Teslim / tesellüm sahibi");
 
                   Button startButton = choice("Saat seç  •  Henüz seçilmedi");
                   c.addView(startButton);
@@ -370,15 +489,16 @@ jobs:
                   root.addView(save);
                   save.setOnClickListener(v -> {
                       if (value(person).isEmpty() || value(train).isEmpty() ||
-                              value(owner).isEmpty() || selectedStart.isEmpty()) {
+                              ownerPicker.value().isEmpty() || selectedStart.isEmpty()) {
                           Toast.makeText(this, "Kiminle, tren no, teslim/tesellüm sahibi ve başlangıç saati gerekli.", Toast.LENGTH_LONG).show();
                           return;
                       }
                       String chainId = UUID.randomUUID().toString();
                       String record = chainId + "|" + selectedStartDate + "|" +
                               value(person) + "|" + value(train) + "|" + selectedStart + "|" +
-                              value(owner) + "|OPEN";
+                              ownerPicker.value() + "|OPEN";
                       records.add(record);
+                      rememberOwner(ownerPicker.value());
                       persist();
                       Toast.makeText(this, "Kayıt oluşturuldu. Uygulamayı kapatabilirsin.", Toast.LENGTH_SHORT).show();
                       home();
@@ -648,8 +768,7 @@ jobs:
                   c.addView(finishButton);
                   finishButton.setOnClickListener(v -> chooseTime(finishButton, false));
 
-                  TextInputLayout owner = field("Teslim / tesellüm sahibi");
-                  c.addView(owner);
+                  OwnerPicker ownerPicker = new OwnerPicker(c, "Teslim / tesellüm sahibi");
 
                   LinearLayout auto = card();
                   auto.setBackground(bg(Color.rgb(33,28,43), 18));
@@ -666,8 +785,8 @@ jobs:
                           Toast.makeText(this, "Önce görev bitiş saatini seç.", Toast.LENGTH_LONG).show();
                           return;
                       }
-                      if (value(owner).isEmpty()) {
-                          Toast.makeText(this, "Teslim / tesellüm sahibini gir.", Toast.LENGTH_LONG).show();
+                      if (ownerPicker.value().isEmpty()) {
+                          Toast.makeText(this, "Teslim / tesellüm sahibini seç veya manuel gir.", Toast.LENGTH_LONG).show();
                           return;
                       }
                       if (finishBeforeStart(a[1], a[4], selectedFinishDate, selectedFinish)) {
@@ -677,8 +796,9 @@ jobs:
 
                       String hotelArrival = addThirtyMinutes(selectedFinishDate, selectedFinish);
                       String newRecord = r.replace("|OPEN", "|HOTEL|" + selectedFinishDate + "|" +
-                              selectedFinish + "|" + value(owner) + "|" + hotelArrival);
+                              selectedFinish + "|" + ownerPicker.value() + "|" + hotelArrival);
                       records.set(records.indexOf(r), newRecord);
+                      rememberOwner(ownerPicker.value());
                       persist();
                       Toast.makeText(this, "Otel konaklaması kaydedildi • Otele varış " + hotelArrival,
                               Toast.LENGTH_LONG).show();
@@ -692,8 +812,8 @@ jobs:
                           Toast.makeText(this, "Görev bitiş saatini seç.", Toast.LENGTH_LONG).show();
                           return;
                       }
-                      if (value(owner).isEmpty()) {
-                          Toast.makeText(this, "Teslim / tesellüm sahibini gir.", Toast.LENGTH_LONG).show();
+                      if (ownerPicker.value().isEmpty()) {
+                          Toast.makeText(this, "Teslim / tesellüm sahibini seç veya manuel gir.", Toast.LENGTH_LONG).show();
                           return;
                       }
                       if (finishBeforeStart(a[1], a[4], selectedFinishDate, selectedFinish)) {
@@ -703,8 +823,9 @@ jobs:
 
                       String arrival = addThirtyMinutes(selectedFinishDate, selectedFinish);
                       String newRecord = r.replace("|OPEN", "|DONE|" + selectedFinishDate + "|" +
-                              selectedFinish + "|" + value(owner) + "|" + arrival);
+                              selectedFinish + "|" + ownerPicker.value() + "|" + arrival);
                       records.set(records.indexOf(r), newRecord);
+                      rememberOwner(ownerPicker.value());
                       persist();
                       Toast.makeText(this, "Görev tamamlandı • Eve giriş " + arrival, Toast.LENGTH_LONG).show();
                       home();
@@ -781,7 +902,7 @@ jobs:
                   samePerson.setText("Aynı kişiyle devam ediyorum  •  " + a[2]);
                   samePerson.setTextSize(15);
                   samePerson.setTextColor(Color.rgb(235,230,242));
-                  samePerson.setChecked(true);
+                  samePerson.setChecked(autoContinuePerson());
                   samePerson.setButtonTintList(android.content.res.ColorStateList.valueOf(Color.rgb(169,139,212)));
                   c.addView(samePerson);
 
@@ -793,8 +914,7 @@ jobs:
                       person.setVisibility(isChecked ? View.GONE : View.VISIBLE);
                   });
 
-                  TextInputLayout owner = field("Teslim / tesellüm sahibi");
-                  c.addView(owner);
+                  OwnerPicker ownerPicker = new OwnerPicker(c, "Teslim / tesellüm sahibi");
 
                   root.addView(c);
 
@@ -803,7 +923,7 @@ jobs:
                   save.setOnClickListener(v -> {
                       String chosenPerson = samePerson.isChecked() ? a[2] : value(person);
                       String chosenTrain = value(train);
-                      String chosenOwner = value(owner);
+                      String chosenOwner = ownerPicker.value();
 
                       if (selectedStart.isEmpty() || chosenPerson.isEmpty() || chosenTrain.isEmpty() || chosenOwner.isEmpty()) {
                           Toast.makeText(this, "Başlangıç saati, tren no, kiminle gittiğin ve teslim/tesellüm sahibi gerekli.", Toast.LENGTH_LONG).show();
@@ -820,6 +940,7 @@ jobs:
                           records.set(oldIndex, closedHotel);
                       }
                       records.add(newRecord);
+                      rememberOwner(chosenOwner);
                       persist();
 
                       Toast.makeText(this, "Tren devam kaydı oluşturuldu. " + chosenTrain + " • " + chosenPerson,
@@ -830,6 +951,130 @@ jobs:
                   Button cancel = action("Vazgeç", false);
                   root.addView(cancel);
                   cancel.setOnClickListener(v -> ongoing());
+              }
+
+              void settings() {
+                  currentPage = "settings";
+                  page("Ayarlar", "Hazır kişi listesi ve otomatik seçim davranışını buradan yönet.");
+
+                  LinearLayout behavior = card();
+                  behavior.addView(section("Kişi seçimi"));
+
+                  Switch listSwitch = new Switch(this);
+                  listSwitch.setText("Hazır kişi listesini kullan");
+                  listSwitch.setTextSize(15);
+                  listSwitch.setTextColor(Color.rgb(235,230,242));
+                  listSwitch.setChecked(useOwnerList());
+                  behavior.addView(listSwitch);
+
+                  Switch sameSwitch = new Switch(this);
+                  sameSwitch.setText("Treni devam ettirirken aynı kişiyi otomatik seç");
+                  sameSwitch.setTextSize(15);
+                  sameSwitch.setTextColor(Color.rgb(235,230,242));
+                  sameSwitch.setChecked(autoContinuePerson());
+                  behavior.addView(sameSwitch);
+
+                  behavior.addView(text("Hazır liste açıkken teslim/tesellüm alanlarında isimler tek dokunuşla seçilir. Manuel farklı isim seçeneği her zaman kullanılabilir.",
+                          12, Color.rgb(155,148,165), false));
+                  root.addView(behavior);
+
+                  LinearLayout defaultCard = card();
+                  defaultCard.addView(section("Yeni görevde otomatik kişi"));
+                  ArrayList<String> people = ownerList();
+                  ArrayList<String> choices = new ArrayList<>();
+                  choices.add("Seçim yok");
+                  choices.addAll(people);
+                  Spinner defaultSpinner = new Spinner(this);
+                  ArrayAdapter<String> defaultAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, choices);
+                  defaultSpinner.setAdapter(defaultAdapter);
+                  String currentDefault = defaultOwner();
+                  int defaultIndex = currentDefault.isEmpty() ? 0 : Math.max(0, choices.indexOf(currentDefault));
+                  defaultSpinner.setSelection(defaultIndex);
+                  defaultCard.addView(defaultSpinner, new LinearLayout.LayoutParams(-1, dp(54)));
+                  root.addView(defaultCard);
+
+                  LinearLayout peopleCard = card();
+                  peopleCard.addView(section("Hazır isim listesi"));
+                  LinearLayout peopleContainer = new LinearLayout(this);
+                  peopleContainer.setOrientation(LinearLayout.VERTICAL);
+                  peopleCard.addView(peopleContainer);
+
+                  Runnable renderPeople = () -> {
+                      peopleContainer.removeAllViews();
+                      for (String person : ownerList()) {
+                          LinearLayout row = new LinearLayout(this);
+                          row.setGravity(Gravity.CENTER_VERTICAL);
+                          TextView name = text(person, 15, Color.rgb(235,230,242), true);
+                          row.addView(name, new LinearLayout.LayoutParams(0, dp(48), 1f));
+                          Button remove = action("Sil", false);
+                          remove.setTextSize(12);
+                          remove.setOnClickListener(v -> new AlertDialog.Builder(this)
+                                  .setTitle("Kişiyi sil")
+                                  .setMessage(person + " hazır listesinden çıkarılsın mı?")
+                                  .setNegativeButton("Vazgeç", null)
+                                  .setPositiveButton("Sil", (d, which) -> {
+                                      ArrayList<String> updated = ownerList();
+                                      updated.remove(person);
+                                      if (updated.isEmpty()) {
+                                          Toast.makeText(this, "En az bir hazır isim kalmalı.", Toast.LENGTH_SHORT).show();
+                                          return;
+                                      }
+                                      saveOwnerList(updated);
+                                      if (person.equals(prefs.getString("default_owner", ""))) {
+                                          prefs.edit().remove("default_owner").apply();
+                                      }
+                                      renderPeople.run();
+                                  }).show());
+                          row.addView(remove, new LinearLayout.LayoutParams(dp(74), dp(50)));
+                          peopleContainer.addView(row);
+                      }
+                  };
+                  renderPeople.run();
+
+                  Button add = action("＋  Yeni isim ekle", true);
+                  peopleCard.addView(add);
+                  add.setOnClickListener(v -> {
+                      TextInputLayout input = field("Yeni isim");
+                      AlertDialog dialog = new AlertDialog.Builder(this)
+                              .setTitle("Hazır listeye kişi ekle")
+                              .setView(input)
+                              .setNegativeButton("Vazgeç", null)
+                              .setPositiveButton("Ekle", null)
+                              .create();
+                      dialog.setOnShowListener(x -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(y -> {
+                          String name = value(input);
+                          if (name.isEmpty()) {
+                              input.setError("İsim gir");
+                              return;
+                          }
+                          ArrayList<String> updated = ownerList();
+                          if (updated.contains(name)) {
+                              input.setError("Bu isim zaten listede");
+                              return;
+                          }
+                          updated.add(name);
+                          saveOwnerList(updated);
+                          dialog.dismiss();
+                          renderPeople.run();
+                          Toast.makeText(this, name + " eklendi.", Toast.LENGTH_SHORT).show();
+                      }));
+                      dialog.show();
+                  });
+                  root.addView(peopleCard);
+
+                  listSwitch.setOnCheckedChangeListener((buttonView, checked) -> prefs.edit().putBoolean("use_owner_list", checked).apply());
+                  sameSwitch.setOnCheckedChangeListener((buttonView, checked) -> prefs.edit().putBoolean("auto_continue_person", checked).apply());
+                  defaultSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                      @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                          String chosen = choices.get(position);
+                          prefs.edit().putString("default_owner", "Seçim yok".equals(chosen) ? "" : chosen).apply();
+                      }
+                      @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+                  });
+
+                  Button back = action("Ana Sayfa", false);
+                  root.addView(back);
+                  back.setOnClickListener(v -> home());
               }
 
               void chooseTrain(TextInputLayout target, String[] trains, String titleText) {
@@ -1403,11 +1648,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.11.apk"
-          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.11.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.12.apk"
+          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.12.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: Puantaj-v0.5.11
-          path: ${{ github.workspace }}/Puantaj-v0.5.11.apk
+          name: Puantaj-v0.5.12
+          path: ${{ github.workspace }}/Puantaj-v0.5.12.apk
