@@ -1,4 +1,4 @@
-name: Puantaj APK v0.5.17
+name: Puantaj APK v0.5.18
 
 on:
   push:
@@ -58,7 +58,7 @@ jobs:
                   minSdk 26
                   targetSdk 35
                   versionCode 21
-                  versionName '0.5.17'
+                  versionName '0.5.18'
               }
           }
           dependencies {
@@ -177,7 +177,7 @@ jobs:
                   }
               }
 
-              // v0.5.17: hazır isim otomatik seçimi yalnızca 1. aşama (görev başlatma) içindir;
+              // v0.5.18: hazır isim otomatik seçimi yalnızca 1. aşama (görev başlatma) içindir;
               // 2. aşama (görev bitişi/otel) manuel giriş ile başlar, hazır liste yalnızca tik ile açılır.
               class OwnerPicker {
                   final TextInputLayout input;
@@ -1271,24 +1271,11 @@ jobs:
                       return a[4].compareTo(b[4]);
                   });
 
-                  // Kayıtlarda bulunan yılları çıkar.
+                  // Yıl seçimi 2025-2100 arasında sabit tutulur.
+                  // Yeni bir yıl için önceden kayıt bulunması gerekmez.
                   TreeSet<Integer> yearSet = new TreeSet<>();
-                  for (ArrayList<String> chain : sortedChains) {
-                      for (String r : chain) {
-                          String[] a = r.split("\\|", -1);
-                          if (a.length < 2) continue;
-                          try {
-                              String dateForYear = ("HOTEL".equals(a.length > 6 ? a[6] : "") ||
-                                      "HOTEL_DONE".equals(a.length > 6 ? a[6] : ""))
-                                      && a.length >= 8 ? a[7] : a[1];
-                              Date d = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).parse(dateForYear);
-                              if (d != null) {
-                                  Calendar cal = Calendar.getInstance();
-                                  cal.setTime(d);
-                                  yearSet.add(cal.get(Calendar.YEAR));
-                              }
-                          } catch (Exception ignored) {}
-                      }
+                  for (int y = 2025; y <= 2100; y++) {
+                      yearSet.add(y);
                   }
 
                   if (yearSet.isEmpty()) {
@@ -1467,8 +1454,31 @@ jobs:
                               } else {
                                   chainTitle = startDate + "  →  " + endDate + "  •  SERVİS";
                               }
-                              chainCard.addView(text(chainTitle, 18,
-                                      Color.rgb(245,243,250), true));
+                              TextView serviceTitle = text(chainTitle, 18,
+                                      Color.rgb(245,243,250), true);
+                              final String deleteChainId = chain.get(0).split("\\|", -1)[0];
+
+                              // Sadece servis başlığına uzun basınca bütün servis zincirini
+                              // silme onayı açılır. Kartın diğer bölümleri bu işlemi tetiklemez.
+                              serviceTitle.setOnLongClickListener(v -> {
+                                  new AlertDialog.Builder(this)
+                                          .setTitle("Kaydı sil")
+                                          .setMessage("Gerçekten bu servisin tamamını silmek istiyor musun?")
+                                          .setNegativeButton("HAYIR", null)
+                                          .setPositiveButton("SİL", (dialog, which) -> {
+                                              for (int i = records.size() - 1; i >= 0; i--) {
+                                                  String[] rec = records.get(i).split("\\|", -1);
+                                                  if (rec.length > 0 && deleteChainId.equals(rec[0])) {
+                                                      records.remove(i);
+                                                  }
+                                              }
+                                              persist();
+                                              monthly();
+                                          })
+                                          .show();
+                                  return true;
+                              });
+                              chainCard.addView(serviceTitle);
 
                               // Üst başlıkta tekrar eden tren/kiminle/başlangıç bilgileri yok.
                               // Bu bilgiler artık ait oldukları tarih segmentinde ayrıntılı gösterilir.
@@ -1716,11 +1726,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.17.apk"
-          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.17.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.18.apk"
+          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.18.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: Puantaj-v0.5.17
-          path: ${{ github.workspace }}/Puantaj-v0.5.17.apk
+          name: Puantaj-v0.5.18
+          path: ${{ github.workspace }}/Puantaj-v0.5.18.apk
