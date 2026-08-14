@@ -1,4 +1,4 @@
-name: Puantaj APK v0.5.10
+name: Puantaj APK v0.5.11
 
 on:
   push:
@@ -57,8 +57,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 14
-                  versionName '0.5.10'
+                  versionCode 15
+                  versionName '0.5.11'
               }
           }
           dependencies {
@@ -451,7 +451,8 @@ jobs:
 
               void editCompletedRecord(String raw) {
                   String[] a = raw.split("\\|", -1);
-                  if (a.length < 11 || !"DONE".equals(a[6])) {
+                  if (a.length < 11 ||
+                          !("DONE".equals(a[6]) || "HOTEL".equals(a[6]) || "HOTEL_DONE".equals(a[6]))) {
                       Toast.makeText(this, "Bu kayıt için düzenleme desteklenmiyor.", Toast.LENGTH_LONG).show();
                       return;
                   }
@@ -536,7 +537,7 @@ jobs:
                   });
 
                   AlertDialog dialog = new AlertDialog.Builder(this)
-                          .setTitle("Kaydı Düzenle")
+                          .setTitle("DONE".equals(a[6]) ? "Tamamlanmış Kaydı Düzenle" : "Görev Başlangıç Kaydını Düzenle")
                           .setView(box)
                           .setNegativeButton("Vazgeç", null)
                           .setPositiveButton("Kaydet", null)
@@ -1205,6 +1206,20 @@ jobs:
                                                       13, Color.rgb(175,168,185), false));
                                           }
 
+                                          final String editableHotelRecord = r;
+                                          hotel.setOnLongClickListener(v -> {
+                                              String title = "HOTEL_DONE".equals(status)
+                                                      ? "Otel / bekleme kaydı"
+                                                      : "Görev başlangıç kaydı";
+                                              new AlertDialog.Builder(this)
+                                                      .setTitle(title)
+                                                      .setMessage("Bu kaydı düzenlemek ister misin?")
+                                                      .setNegativeButton("Vazgeç", null)
+                                                      .setPositiveButton("Düzenle", (d, which) -> editCompletedRecord(editableHotelRecord))
+                                                      .show();
+                                              return true;
+                                          });
+
                                           chainCard.addView(hotel);
 
                                           String nextDate = "";
@@ -1388,11 +1403,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.10.apk"
-          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.10.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.11.apk"
+          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.11.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: Puantaj-v0.5.10
-          path: ${{ github.workspace }}/Puantaj-v0.5.10.apk
+          name: Puantaj-v0.5.11
+          path: ${{ github.workspace }}/Puantaj-v0.5.11.apk
