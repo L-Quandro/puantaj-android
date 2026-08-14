@@ -1,4 +1,4 @@
-name: Puantaj APK v0.5.13
+name: Puantaj APK v0.5.14
 
 on:
   push:
@@ -57,8 +57,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 17
-                  versionName '0.5.13'
+                  versionCode 18
+                  versionName '0.5.14'
               }
           }
           dependencies {
@@ -179,70 +179,124 @@ jobs:
 
               class OwnerPicker {
                   final TextInputLayout input;
-                  final CheckBox manual;
+                  final CheckBox modeCheck;
                   final Button chooser;
+                  final String label;
+                  final boolean listFirst;
                   String selected = "";
 
+                  // listFirst=true: başlangıç/final kayıtta önce hazır kişi seçimi gösterilir.
+                  // listFirst=false: ara teslim/tesellümde önce manuel giriş gösterilir;
+                  // kullanıcı isterse tik ile hazır listeden seçim moduna geçer.
                   OwnerPicker(LinearLayout parent, String label) {
+                      this(parent, label, true);
+                  }
+
+                  OwnerPicker(LinearLayout parent, String label, boolean listFirst) {
+                      this.label = label;
+                      this.listFirst = listFirst;
+
                       chooser = choice(label + "  •  Seç");
                       parent.addView(chooser);
-                      manual = new CheckBox(MainActivity.this);
-                      manual.setText("Manuel farklı isim gireceğim");
-                      manual.setTextSize(14);
-                      manual.setTextColor(Color.rgb(225,220,232));
-                      manual.setButtonTintList(android.content.res.ColorStateList.valueOf(Color.rgb(169,139,212)));
-                      parent.addView(manual);
+
+                      modeCheck = new CheckBox(MainActivity.this);
+                      modeCheck.setText(listFirst ? "Manuel farklı isim gireceğim" : "Hazır listeden seç");
+                      modeCheck.setTextSize(14);
+                      modeCheck.setTextColor(Color.rgb(225,220,232));
+                      modeCheck.setButtonTintList(android.content.res.ColorStateList.valueOf(Color.rgb(169,139,212)));
+                      parent.addView(modeCheck);
 
                       input = field(label);
                       parent.addView(input);
-                      input.setVisibility(View.GONE);
 
-                      String initial = defaultOwner();
-                      if (initial.isEmpty()) initial = prefs.getString("last_owner", "");
-                      if (useOwnerList() && ownerList().contains(initial)) {
-                          selected = initial;
-                          chooser.setText(label + "  •  " + selected);
+                      if (listFirst) {
+                          // Başlangıç/final kaydında hiçbir isim otomatik yazılmaz.
+                          // Kullanıcı önce seçim ekranından bir isim seçer.
+                          chooser.setVisibility(View.VISIBLE);
+                          input.setVisibility(View.GONE);
+                          modeCheck.setChecked(false);
+                      } else {
+                          // Ara teslim/tesellüm alanı manuel giriş ile başlar.
+                          chooser.setVisibility(View.GONE);
+                          input.setVisibility(View.VISIBLE);
+                          modeCheck.setChecked(false);
                       }
 
-                      chooser.setOnClickListener(v -> {
-                          if (!useOwnerList()) {
-                              manual.setChecked(true);
-                              return;
-                          }
-                          ArrayList<String> list = ownerList();
-                          String[] items = list.toArray(new String[0]);
-                          int checked = list.indexOf(selected);
-                          new AlertDialog.Builder(MainActivity.this)
-                                  .setTitle(label)
-                                  .setSingleChoiceItems(items, checked, (d, which) -> {
-                                      selected = items[which];
-                                      chooser.setText(label + "  •  " + selected);
-                                      manual.setChecked(false);
-                                      d.dismiss();
-                                  })
-                                  .setNegativeButton("İptal", null)
-                                  .show();
-                      });
+                      chooser.setOnClickListener(v -> showOwnerChoices());
 
-                      manual.setOnCheckedChangeListener((buttonView, checked) -> {
-                          input.setVisibility(checked ? View.VISIBLE : View.GONE);
-                          if (checked) input.getEditText().setText("");
+                      modeCheck.setOnCheckedChangeListener((buttonView, checked) -> {
+                          if (listFirst) {
+                              input.setVisibility(checked ? View.VISIBLE : View.GONE);
+                              chooser.setVisibility(checked ? View.GONE : View.VISIBLE);
+                              if (checked) {
+                                  selected = "";
+                                  input.getEditText().setText("");
+                              }
+                          } else {
+                              chooser.setVisibility(checked ? View.VISIBLE : View.GONE);
+                              input.setVisibility(checked ? View.GONE : View.VISIBLE);
+                              if (checked) {
+                                  selected = "";
+                                  showOwnerChoices();
+                              }
+                          }
                       });
                   }
 
+                  void showOwnerChoices() {
+                      if (!useOwnerList()) {
+                          Toast.makeText(MainActivity.this, "Hazır kişi listesi Ayarlar'dan kapalı.", Toast.LENGTH_SHORT).show();
+                          if (listFirst) {
+                              modeCheck.setChecked(true);
+                          }
+                          return;
+                      }
+                      ArrayList<String> list = ownerList();
+                      if (list.isEmpty()) {
+                          Toast.makeText(MainActivity.this, "Hazır kişi listesinde isim yok.", Toast.LENGTH_SHORT).show();
+                          return;
+                      }
+                      String[] items = list.toArray(new String[0]);
+                      int checked = list.indexOf(selected);
+                      new AlertDialog.Builder(MainActivity.this)
+                              .setTitle(label)
+                              .setSingleChoiceItems(items, checked, (d, which) -> {
+                                  selected = items[which];
+                                  chooser.setText(label + "  •  " + selected);
+                                  if (listFirst) {
+                                      modeCheck.setChecked(false);
+                                  } else {
+                                      modeCheck.setChecked(true);
+                                  }
+                                  d.dismiss();
+                              })
+                              .setNegativeButton("İptal", null)
+                              .show();
+                  }
+
                   String value() {
-                      if (manual.isChecked()) return MainActivity.this.value(input);
-                      return selected == null ? "" : selected;
+                      if (listFirst) {
+                          return modeCheck.isChecked() ? MainActivity.this.value(input) :
+                                  (selected == null ? "" : selected);
+                      }
+                      return modeCheck.isChecked() ? (selected == null ? "" : selected) :
+                              MainActivity.this.value(input);
                   }
 
                   void setValue(String value) {
                       if (value == null) value = "";
+                      value = value.trim();
                       if (useOwnerList() && ownerList().contains(value)) {
                           selected = value;
-                          chooser.setText(input.getHint() + "  •  " + selected);
-                          manual.setChecked(false);
+                          chooser.setText(label + "  •  " + selected);
+                          if (listFirst) {
+                              modeCheck.setChecked(false);
+                          } else {
+                              modeCheck.setChecked(true);
+                          }
                       } else {
-                          manual.setChecked(true);
+                          selected = "";
+                          modeCheck.setChecked(listFirst);
                           input.getEditText().setText(value);
                       }
                   }
@@ -914,7 +968,7 @@ jobs:
                       person.setVisibility(isChecked ? View.GONE : View.VISIBLE);
                   });
 
-                  OwnerPicker ownerPicker = new OwnerPicker(c, "Teslim / tesellüm sahibi");
+                  OwnerPicker ownerPicker = new OwnerPicker(c, "Teslim / tesellüm sahibi", false);
 
                   root.addView(c);
 
@@ -1649,11 +1703,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.13.apk"
-          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.13.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.14.apk"
+          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.14.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: Puantaj-v0.5.13
-          path: ${{ github.workspace }}/Puantaj-v0.5.13.apk
+          name: Puantaj-v0.5.14
+          path: ${{ github.workspace }}/Puantaj-v0.5.14.apk
