@@ -1,4 +1,4 @@
-name: Puantaj APK v0.5.15
+name: Puantaj APK v0.5.17
 
 on:
   push:
@@ -57,8 +57,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 19
-                  versionName '0.5.15'
+                  versionCode 21
+                  versionName '0.5.17'
               }
           }
           dependencies {
@@ -177,7 +177,8 @@ jobs:
                   }
               }
 
-              // v0.5.15: ara teslimde hazır isim listesi sadece tik ile açılır.
+              // v0.5.17: hazır isim otomatik seçimi yalnızca 1. aşama (görev başlatma) içindir;
+              // 2. aşama (görev bitişi/otel) manuel giriş ile başlar, hazır liste yalnızca tik ile açılır.
               class OwnerPicker {
                   final TextInputLayout input;
                   final CheckBox modeCheck;
@@ -834,7 +835,7 @@ jobs:
                   c.addView(finishButton);
                   finishButton.setOnClickListener(v -> chooseTime(finishButton, false));
 
-                  OwnerPicker ownerPicker = new OwnerPicker(c, "Teslim / tesellüm sahibi");
+                  OwnerPicker ownerPicker = new OwnerPicker(c, "Teslim / tesellüm sahibi", true);
 
                   LinearLayout auto = card();
                   auto.setBackground(bg(Color.rgb(33,28,43), 18));
@@ -1715,11 +1716,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.15.apk"
-          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.15.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.17.apk"
+          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.17.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: Puantaj-v0.5.15
-          path: ${{ github.workspace }}/Puantaj-v0.5.15.apk
+          name: Puantaj-v0.5.17
+          path: ${{ github.workspace }}/Puantaj-v0.5.17.apk
