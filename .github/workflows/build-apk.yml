@@ -1,4 +1,4 @@
-name: Puantaj APK v0.5.9
+name: Puantaj APK v0.5.10
 
 on:
   push:
@@ -57,8 +57,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 13
-                  versionName '0.5.9'
+                  versionCode 14
+                  versionName '0.5.10'
               }
           }
           dependencies {
@@ -429,6 +429,150 @@ jobs:
                   d.show();
               }
           
+              boolean finishBeforeStart(String startDate, String startTime, String finishDate, String finishTime) {
+                  try {
+                      SimpleDateFormat f = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
+                      f.setLenient(false);
+                      Date start = f.parse(startDate + " " + startTime);
+                      Date finish = f.parse(finishDate + " " + finishTime);
+                      return start != null && finish != null && finish.before(start);
+                  } catch (Exception e) {
+                      return true;
+                  }
+              }
+
+              void showTimeOrderWarning() {
+                  new AlertDialog.Builder(this)
+                          .setTitle("Saat bilgisi hatalı")
+                          .setMessage("Görev bitiş / varış saati, görev başlangıç saatinden önce olamaz. Lütfen tarihi ve saati kontrol et.")
+                          .setPositiveButton("Tamam", null)
+                          .show();
+              }
+
+              void editCompletedRecord(String raw) {
+                  String[] a = raw.split("\\|", -1);
+                  if (a.length < 11 || !"DONE".equals(a[6])) {
+                      Toast.makeText(this, "Bu kayıt için düzenleme desteklenmiyor.", Toast.LENGTH_LONG).show();
+                      return;
+                  }
+
+                  final TextInputLayout person = field("Kiminle");
+                  final TextInputLayout train = field("Tren no");
+                  final TextInputLayout startOwner = field("Başlangıç teslim / tesellüm sahibi");
+                  final TextInputLayout finishOwner = field("Bitiş teslim / tesellüm sahibi");
+                  if (person.getEditText() != null) person.getEditText().setText(a[2]);
+                  if (train.getEditText() != null) train.getEditText().setText(a[3]);
+                  if (startOwner.getEditText() != null) startOwner.getEditText().setText(a[5]);
+                  if (finishOwner.getEditText() != null) finishOwner.getEditText().setText(a[9]);
+
+                  final String[] editStartDate = {a[1]};
+                  final String[] editStartTime = {a[4]};
+                  final String[] editFinishDate = {a[7]};
+                  final String[] editFinishTime = {a[8]};
+
+                  LinearLayout box = new LinearLayout(this);
+                  box.setOrientation(LinearLayout.VERTICAL);
+                  int pad = dp(18);
+                  box.setPadding(pad, dp(6), pad, 0);
+                  box.addView(person);
+                  box.addView(train);
+
+                  Button startDate = choice("Başlangıç tarihi  •  " + editStartDate[0]);
+                  Button startTime = choice("Başlangıç saati  •  " + editStartTime[0]);
+                  Button finishDate = choice("Bitiş tarihi  •  " + editFinishDate[0]);
+                  Button finishTime = choice("Bitiş saati  •  " + editFinishTime[0]);
+                  box.addView(startDate);
+                  box.addView(startTime);
+                  box.addView(startOwner);
+                  box.addView(finishDate);
+                  box.addView(finishTime);
+                  box.addView(finishOwner);
+
+                  startDate.setOnClickListener(v -> {
+                      Calendar c = Calendar.getInstance();
+                      try {
+                          Date d = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).parse(editStartDate[0]);
+                          if (d != null) c.setTime(d);
+                      } catch (Exception ignored) {}
+                      new DatePickerDialog(this, (view, year, month, day) -> {
+                          editStartDate[0] = String.format(Locale.getDefault(), "%02d.%02d.%04d", day, month + 1, year);
+                          startDate.setText("Başlangıç tarihi  •  " + editStartDate[0]);
+                      }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show();
+                  });
+                  startTime.setOnClickListener(v -> {
+                      Calendar c = Calendar.getInstance();
+                      try {
+                          String[] hm = editStartTime[0].split(":");
+                          c.set(Calendar.HOUR_OF_DAY, Integer.parseInt(hm[0]));
+                          c.set(Calendar.MINUTE, Integer.parseInt(hm[1]));
+                      } catch (Exception ignored) {}
+                      new TimePickerDialog(this, (view, hour, minute) -> {
+                          editStartTime[0] = String.format(Locale.getDefault(), "%02d:%02d", hour, minute);
+                          startTime.setText("Başlangıç saati  •  " + editStartTime[0]);
+                      }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show();
+                  });
+                  finishDate.setOnClickListener(v -> {
+                      Calendar c = Calendar.getInstance();
+                      try {
+                          Date d = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).parse(editFinishDate[0]);
+                          if (d != null) c.setTime(d);
+                      } catch (Exception ignored) {}
+                      new DatePickerDialog(this, (view, year, month, day) -> {
+                          editFinishDate[0] = String.format(Locale.getDefault(), "%02d.%02d.%04d", day, month + 1, year);
+                          finishDate.setText("Bitiş tarihi  •  " + editFinishDate[0]);
+                      }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show();
+                  });
+                  finishTime.setOnClickListener(v -> {
+                      Calendar c = Calendar.getInstance();
+                      try {
+                          String[] hm = editFinishTime[0].split(":");
+                          c.set(Calendar.HOUR_OF_DAY, Integer.parseInt(hm[0]));
+                          c.set(Calendar.MINUTE, Integer.parseInt(hm[1]));
+                      } catch (Exception ignored) {}
+                      new TimePickerDialog(this, (view, hour, minute) -> {
+                          editFinishTime[0] = String.format(Locale.getDefault(), "%02d:%02d", hour, minute);
+                          finishTime.setText("Bitiş saati  •  " + editFinishTime[0]);
+                      }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show();
+                  });
+
+                  AlertDialog dialog = new AlertDialog.Builder(this)
+                          .setTitle("Kaydı Düzenle")
+                          .setView(box)
+                          .setNegativeButton("Vazgeç", null)
+                          .setPositiveButton("Kaydet", null)
+                          .create();
+                  dialog.setOnShowListener(v -> {
+                      Button saveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+                      saveButton.setOnClickListener(x -> {
+                          String pName = value(person);
+                          String tNo = value(train);
+                          String sOwner = value(startOwner);
+                          String fOwner = value(finishOwner);
+                          if (pName.isEmpty() || tNo.isEmpty() || sOwner.isEmpty() || fOwner.isEmpty()) {
+                              Toast.makeText(this, "Tüm kişi, tren ve teslim/tesellüm alanları doldurulmalı.", Toast.LENGTH_LONG).show();
+                              return;
+                          }
+                          if (finishBeforeStart(editStartDate[0], editStartTime[0], editFinishDate[0], editFinishTime[0])) {
+                              showTimeOrderWarning();
+                              return;
+                          }
+                          String arrival = addThirtyMinutes(editFinishDate[0], editFinishTime[0]);
+                          String updated = a[0] + "|" + editStartDate[0] + "|" + pName + "|" + tNo + "|" +
+                                  editStartTime[0] + "|" + sOwner + "|DONE|" + editFinishDate[0] + "|" +
+                                  editFinishTime[0] + "|" + fOwner + "|" + arrival;
+                          int index = records.indexOf(raw);
+                          if (index >= 0) {
+                              records.set(index, updated);
+                              persist();
+                              dialog.dismiss();
+                              Toast.makeText(this, "Kayıt güncellendi.", Toast.LENGTH_SHORT).show();
+                              monthly();
+                          }
+                      });
+                  });
+                  dialog.show();
+              }
+
               void ongoing() {
                   currentPage = "ongoing";
                   page("Devam Eden", "Tamamlanmamış veya otelde devam eden görevler.");
@@ -525,6 +669,10 @@ jobs:
                           Toast.makeText(this, "Teslim / tesellüm sahibini gir.", Toast.LENGTH_LONG).show();
                           return;
                       }
+                      if (finishBeforeStart(a[1], a[4], selectedFinishDate, selectedFinish)) {
+                          showTimeOrderWarning();
+                          return;
+                      }
 
                       String hotelArrival = addThirtyMinutes(selectedFinishDate, selectedFinish);
                       String newRecord = r.replace("|OPEN", "|HOTEL|" + selectedFinishDate + "|" +
@@ -545,6 +693,10 @@ jobs:
                       }
                       if (value(owner).isEmpty()) {
                           Toast.makeText(this, "Teslim / tesellüm sahibini gir.", Toast.LENGTH_LONG).show();
+                          return;
+                      }
+                      if (finishBeforeStart(a[1], a[4], selectedFinishDate, selectedFinish)) {
+                          showTimeOrderWarning();
                           return;
                       }
 
@@ -1140,6 +1292,19 @@ jobs:
                                               Color.rgb(235,190,90), true));
                                   }
 
+                                  if ("DONE".equals(status)) {
+                                      final String editableRecord = r;
+                                      segmentCard.setOnLongClickListener(v -> {
+                                          new AlertDialog.Builder(this)
+                                                  .setTitle("Tamamlanmış kayıt")
+                                                  .setMessage("Bu kaydı düzenlemek ister misin?")
+                                                  .setNegativeButton("Vazgeç", null)
+                                                  .setPositiveButton("Düzenle", (d, which) -> editCompletedRecord(editableRecord))
+                                                  .show();
+                                          return true;
+                                      });
+                                  }
+
                                   chainCard.addView(segmentCard);
                               }
 
@@ -1223,11 +1388,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.9.apk"
-          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.9.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.10.apk"
+          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.10.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: Puantaj-v0.5.9
-          path: ${{ github.workspace }}/Puantaj-v0.5.9.apk
+          name: Puantaj-v0.5.10
+          path: ${{ github.workspace }}/Puantaj-v0.5.10.apk
