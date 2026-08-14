@@ -1,4 +1,4 @@
-name: Puantaj APK v0.5.18
+name: Puantaj APK v0.5.19
 
 on:
   push:
@@ -9,12 +9,19 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Depoyu indir
+        uses: actions/checkout@v4
+
       - name: Android projesini oluştur
         shell: bash
         run: |
           set -e
           mkdir -p puantaj/app/src/main/java/com/furkan/puantaj
           mkdir -p puantaj/app/src/main/res/values
+          mkdir -p puantaj/app/src/main/res/drawable-nodpi
+
+          test -s "$GITHUB_WORKSPACE/puantaj_app_icon.png"
+          cp "$GITHUB_WORKSPACE/puantaj_app_icon.png" puantaj/app/src/main/res/drawable-nodpi/puantaj_icon.png
 
           cat > puantaj/settings.gradle <<'EOF'
           pluginManagement {
@@ -57,8 +64,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 21
-                  versionName '0.5.18'
+                  versionCode 22
+                  versionName '0.5.19'
               }
           }
           dependencies {
@@ -71,6 +78,8 @@ jobs:
               <application
                   android:theme="@style/Theme.Puantaj"
                   android:label="Puantaj"
+                  android:icon="@drawable/puantaj_icon"
+                  android:roundIcon="@drawable/puantaj_icon"
                   android:allowBackup="true"
                   android:supportsRtl="true">
                   <activity
@@ -1726,11 +1735,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.18.apk"
-          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.18.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.19.apk"
+          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.19.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: Puantaj-v0.5.18
-          path: ${{ github.workspace }}/Puantaj-v0.5.18.apk
+          name: Puantaj-v0.5.19
+          path: ${{ github.workspace }}/Puantaj-v0.5.19.apk
