@@ -1,4 +1,4 @@
-name: Puantaj APK v0.5.14
+name: Puantaj APK v0.5.15
 
 on:
   push:
@@ -57,8 +57,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 18
-                  versionName '0.5.14'
+                  versionCode 19
+                  versionName '0.5.15'
               }
           }
           dependencies {
@@ -177,6 +177,7 @@ jobs:
                   }
               }
 
+              // v0.5.15: ara teslimde hazır isim listesi sadece tik ile açılır.
               class OwnerPicker {
                   final TextInputLayout input;
                   final CheckBox modeCheck;
@@ -233,8 +234,11 @@ jobs:
                                   input.getEditText().setText("");
                               }
                           } else {
-                              chooser.setVisibility(checked ? View.VISIBLE : View.GONE);
-                              input.setVisibility(checked ? View.GONE : View.VISIBLE);
+                              // Ara teslim/tesellüm: manuel alan her zaman görünür.
+                              // Tik yalnızca hazır isim listesini açar; seçim sonrası
+                              // isim manuel alana aktarılır ve tik kapanır.
+                              chooser.setVisibility(View.GONE);
+                              input.setVisibility(View.VISIBLE);
                               if (checked) {
                                   selected = "";
                                   showOwnerChoices();
@@ -246,9 +250,8 @@ jobs:
                   void showOwnerChoices() {
                       if (!useOwnerList()) {
                           Toast.makeText(MainActivity.this, "Hazır kişi listesi Ayarlar'dan kapalı.", Toast.LENGTH_SHORT).show();
-                          if (listFirst) {
-                              modeCheck.setChecked(true);
-                          }
+                          modeCheck.setChecked(false);
+                          if (listFirst) input.setVisibility(View.GONE);
                           return;
                       }
                       ArrayList<String> list = ownerList();
@@ -266,7 +269,10 @@ jobs:
                                   if (listFirst) {
                                       modeCheck.setChecked(false);
                                   } else {
-                                      modeCheck.setChecked(true);
+                                      input.setVisibility(View.VISIBLE);
+                                      input.getEditText().setText(selected);
+                                      chooser.setVisibility(View.GONE);
+                                      modeCheck.setChecked(false);
                                   }
                                   d.dismiss();
                               })
@@ -292,7 +298,10 @@ jobs:
                           if (listFirst) {
                               modeCheck.setChecked(false);
                           } else {
-                              modeCheck.setChecked(true);
+                              input.setVisibility(View.VISIBLE);
+                              input.getEditText().setText(selected);
+                              chooser.setVisibility(View.GONE);
+                              modeCheck.setChecked(false);
                           }
                       } else {
                           selected = "";
@@ -768,7 +777,10 @@ jobs:
                               14, Color.rgb(205,196,220), false));
 
                       if (status.equals("HOTEL") && a.length >= 11) {
-                          c.addView(text("Otel / devam  •  Teslim: " + a[7] + " " + a[8],
+                          String hotelOwner = a.length > 9 ? a[9] : "";
+                          String hotelDelivery = "Otel / devam  •  Teslim: " + a[7] + " " + a[8];
+                          if (!hotelOwner.isEmpty()) hotelDelivery += "  •  Tesellüm: " + hotelOwner;
+                          c.addView(text(hotelDelivery,
                                   14, Color.rgb(210,190,225), false));
                           c.addView(text("Otele varış +30 dk  •  " + a[10],
                                   13, Color.rgb(175,168,185), false));
@@ -1703,11 +1715,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.14.apk"
-          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.14.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.15.apk"
+          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.15.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: Puantaj-v0.5.14
-          path: ${{ github.workspace }}/Puantaj-v0.5.14.apk
+          name: Puantaj-v0.5.15
+          path: ${{ github.workspace }}/Puantaj-v0.5.15.apk
