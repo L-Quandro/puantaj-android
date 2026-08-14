@@ -1,4 +1,4 @@
-name: Puantaj APK v0.5.12
+name: Puantaj APK v0.5.13
 
 on:
   push:
@@ -57,8 +57,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 16
-                  versionName '0.5.12'
+                  versionCode 17
+                  versionName '0.5.13'
               }
           }
           dependencies {
@@ -999,7 +999,8 @@ jobs:
                   peopleContainer.setOrientation(LinearLayout.VERTICAL);
                   peopleCard.addView(peopleContainer);
 
-                  Runnable renderPeople = () -> {
+                  final Runnable[] renderPeople = new Runnable[1];
+                  renderPeople[0] = () -> {
                       peopleContainer.removeAllViews();
                       for (String person : ownerList()) {
                           LinearLayout row = new LinearLayout(this);
@@ -1023,13 +1024,13 @@ jobs:
                                       if (person.equals(prefs.getString("default_owner", ""))) {
                                           prefs.edit().remove("default_owner").apply();
                                       }
-                                      renderPeople.run();
+                                      renderPeople[0].run();
                                   }).show());
                           row.addView(remove, new LinearLayout.LayoutParams(dp(74), dp(50)));
                           peopleContainer.addView(row);
                       }
                   };
-                  renderPeople.run();
+                  renderPeople[0].run();
 
                   Button add = action("＋  Yeni isim ekle", true);
                   peopleCard.addView(add);
@@ -1055,7 +1056,7 @@ jobs:
                           updated.add(name);
                           saveOwnerList(updated);
                           dialog.dismiss();
-                          renderPeople.run();
+                          renderPeople[0].run();
                           Toast.makeText(this, name + " eklendi.", Toast.LENGTH_SHORT).show();
                       }));
                       dialog.show();
@@ -1648,11 +1649,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.12.apk"
-          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.12.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.13.apk"
+          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.13.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: Puantaj-v0.5.12
-          path: ${{ github.workspace }}/Puantaj-v0.5.12.apk
+          name: Puantaj-v0.5.13
+          path: ${{ github.workspace }}/Puantaj-v0.5.13.apk
