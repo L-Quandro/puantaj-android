@@ -1,4 +1,4 @@
-name: Puantaj APK v0.5.19
+name: Puantaj APK v0.5.21
 
 on:
   push:
@@ -19,9 +19,27 @@ jobs:
           mkdir -p puantaj/app/src/main/java/com/furkan/puantaj
           mkdir -p puantaj/app/src/main/res/values
           mkdir -p puantaj/app/src/main/res/drawable-nodpi
+          mkdir -p puantaj/app/src/main/res/mipmap-anydpi-v26
 
+          # PNG repoda AYRI dosya olarak kalır; build sırasında doğrudan kullanılır.
           test -s "$GITHUB_WORKSPACE/puantaj_app_icon.png"
           cp "$GITHUB_WORKSPACE/puantaj_app_icon.png" puantaj/app/src/main/res/drawable-nodpi/puantaj_icon.png
+
+          # Android'in legacy ikonları küçültüp beyaz zemin/çerçeve eklemesini önlemek için
+          # PNG'yi adaptive icon foreground olarak kullanıyoruz.
+          cat > puantaj/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF'
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@android:color/transparent" />
+              <foreground android:drawable="@drawable/puantaj_icon" />
+          </adaptive-icon>
+          EOF
+
+          cat > puantaj/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml <<'EOF'
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@android:color/transparent" />
+              <foreground android:drawable="@drawable/puantaj_icon" />
+          </adaptive-icon>
+          EOF
 
           cat > puantaj/settings.gradle <<'EOF'
           pluginManagement {
@@ -64,8 +82,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 22
-                  versionName '0.5.19'
+                  versionCode 24
+                  versionName '0.5.21'
               }
           }
           dependencies {
@@ -78,8 +96,8 @@ jobs:
               <application
                   android:theme="@style/Theme.Puantaj"
                   android:label="Puantaj"
-                  android:icon="@drawable/puantaj_icon"
-                  android:roundIcon="@drawable/puantaj_icon"
+                  android:icon="@mipmap/ic_launcher"
+                  android:roundIcon="@mipmap/ic_launcher_round"
                   android:allowBackup="true"
                   android:supportsRtl="true">
                   <activity
@@ -1735,11 +1753,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.19.apk"
-          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.19.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.21.apk"
+          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.21.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: Puantaj-v0.5.19
-          path: ${{ github.workspace }}/Puantaj-v0.5.19.apk
+          name: Puantaj-v0.5.21
+          path: ${{ github.workspace }}/Puantaj-v0.5.21.apk
