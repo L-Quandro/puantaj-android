@@ -1,4 +1,4 @@
-name: Puantaj APK v0.5.23
+name: Puantaj APK v0.5.25
 
 on:
   push:
@@ -9,8 +9,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # v4 -> v5: GitHub Actions runner Node.js 20'yi kaldırıyor (Node 24'e geçiyor).
+      # v4 bu yeni runtime için "deprecated" uyarısı veriyordu; v5 Node 24 ile
+      # native uyumlu olduğu için uyarı kayboluyor, davranışta hiçbir değişiklik yok.
       - name: Depoyu indir
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Android projesini oluştur
         shell: bash
@@ -69,8 +72,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 26
-                  versionName '0.5.23'
+                  versionCode 28
+                  versionName '0.5.25'
               }
           }
           dependencies {
@@ -100,22 +103,25 @@ jobs:
           </manifest>
           EOF
 
-          # KRITIK IKON DÜZELTMESİ (v0.5.24):
-          # Önceki sürümdeki ince siyah kenar sorununun asıl nedeni:
-          # puantaj_app_icon.png'nin kendisi zaten köşeleri yuvarlatılmış ve
-          # etrafı SIYAH (#000000) dolgulu olarak dışa aktarılmıştı (alfa kanalı yoktu).
-          # Bu görsel foreground katmanına aynen konunca, Android'in KENDİ maskesi
-          # (launcher'a göre daire/squircle/yuvarlak kare) görselin üzerine BİR KEZ DAHA
-          # uygulanıyordu. İki yuvarlatma tam örtüşmediği için, launcher maskesinin görselin
-          # kendi siyah köşe dolgusunu ince bir çizgi halinde dışarıda bırakması sonucu
-          # o "siyah kenar çizgisi" ortaya çıkıyordu.
+          # KRITIK IKON DÜZELTMESİ (v0.5.25):
+          # Kök neden: puantaj_app_icon.png'nin kendisi zaten köşeleri yuvarlatılmış
+          # ve etrafı SIYAH dolgulu olarak dışa aktarılmıştı (alfa kanalı yoktu).
+          # Bu görsel foreground katmanına konunca, Android'in KENDİ maskesi
+          # (launcher'a göre daire/squircle/yuvarlak kare) görselin üzerine BİR KEZ
+          # DAHA uygulanıyordu. Görsel önce %20 INSET ile küçültülüp ortalandığı için,
+          # görselin kendi kenarı ile launcher'ın maske kenarı arasında bir boşluk
+          # oluşuyor ve bu boşlukta background rengi ince bir ÇİZGİ/HALKA olarak
+          # görünüyordu (önce siyah, rengi değiştirince mor çizgi - background HER
+          # ZAMAN görselin kendi kenarından biraz taşacağı için renk ne olursa olsun
+          # çizgi kalıyordu).
           #
-          # Çözüm: PNG'nin siyah dolgu/köşe kısmı şeffaf hale getirildi (alfa kanalı
-          # eklendi), böylece Android hangi launcher maskesini uygularsa uygulasın
-          # altından sadece background rengi çıkar - iki maske çakışmaz, çizgi oluşmaz.
-          # background rengi de görselin kendi kenar tonuyla eşleşecek şekilde güncellendi
-          # (#0F0D13 -> #261D37). PNG'nin kendisi bu depoda değiştirildi, kodda ekstra
-          # bir işlem gerekmiyor; %20 inset güvenli alan için aynen korunuyor.
+          # Çözüm: (1) PNG'nin siyah dolgu/köşe kısmı şeffaf hale getirildi, (2)
+          # foreground artık INSET ILE KÜÇÜLTÜLMÜYOR, tam kanvası (0% inset, edge-to-
+          # edge) dolduruyor. Böylece background rengi hiçbir yerde görsel kenarından
+          # taşıp halka oluşturmuyor; hangi launcher maskesi uygulanırsa uygulansın
+          # (daire, squircle, yuvarlak kare) görsel tam kenara kadar gidiyor, çizgi
+          # oluşmuyor. Tasarımın kendi iç boşluğu (tren ve yazının etrafındaki pay)
+          # zaten yeterli güvenli alanı sağlıyor, ek inset gerekmiyor.
           cat > puantaj/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
@@ -134,12 +140,9 @@ jobs:
 
           cat > puantaj/app/src/main/res/drawable/puantaj_icon_foreground.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
-          <inset xmlns:android="http://schemas.android.com/apk/res/android"
-              android:inset="20%">
-              <bitmap
-                  android:src="@drawable/puantaj_icon"
-                  android:gravity="fill" />
-          </inset>
+          <bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+              android:src="@drawable/puantaj_icon"
+              android:gravity="fill" />
           EOF
 
           cat > puantaj/app/src/main/res/values/colors.xml <<'EOF'
@@ -1789,11 +1792,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.23.apk"
-          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.23.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.25.apk"
+          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.25.apk"
 
       - name: APK'yı yükle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
-          name: Puantaj-v0.5.23
-          path: ${{ github.workspace }}/Puantaj-v0.5.23.apk
+          name: Puantaj-v0.5.25
+          path: ${{ github.workspace }}/Puantaj-v0.5.25.apk
