@@ -100,15 +100,22 @@ jobs:
           </manifest>
           EOF
 
-          # KRITIK IKON DÜZELTMESİ:
-          # Önceki sürüm PNG'yi adaptive-icon'un BACKGROUND katmanına koyuyordu.
-          # Android launcher bu katmanı adaptive-icon viewport'una göre büyüttüğü için
-          # PNG'nin üstündeki tren ve altındaki PUANTAJ yazısı maskenin dışına taşıyordu.
+          # KRITIK IKON DÜZELTMESİ (v0.5.24):
+          # Önceki sürümdeki ince siyah kenar sorununun asıl nedeni:
+          # puantaj_app_icon.png'nin kendisi zaten köşeleri yuvarlatılmış ve
+          # etrafı SIYAH (#000000) dolgulu olarak dışa aktarılmıştı (alfa kanalı yoktu).
+          # Bu görsel foreground katmanına aynen konunca, Android'in KENDİ maskesi
+          # (launcher'a göre daire/squircle/yuvarlak kare) görselin üzerine BİR KEZ DAHA
+          # uygulanıyordu. İki yuvarlatma tam örtüşmediği için, launcher maskesinin görselin
+          # kendi siyah köşe dolgusunu ince bir çizgi halinde dışarıda bırakması sonucu
+          # o "siyah kenar çizgisi" ortaya çıkıyordu.
           #
-          # PNG dosyasına dokunmuyoruz. Kaynak dosya aynen kalıyor.
-          # PNG'yi FOREGROUND katmanına, adaptive-icon güvenli alanına sığacak şekilde
-          # %18 inset ile yerleştiriyoruz. Böylece görselin tamamı görünür; beyaz
-          # legacy-icon çerçevesi de oluşmaz.
+          # Çözüm: PNG'nin siyah dolgu/köşe kısmı şeffaf hale getirildi (alfa kanalı
+          # eklendi), böylece Android hangi launcher maskesini uygularsa uygulasın
+          # altından sadece background rengi çıkar - iki maske çakışmaz, çizgi oluşmaz.
+          # background rengi de görselin kendi kenar tonuyla eşleşecek şekilde güncellendi
+          # (#0F0D13 -> #261D37). PNG'nin kendisi bu depoda değiştirildi, kodda ekstra
+          # bir işlem gerekmiyor; %20 inset güvenli alan için aynen korunuyor.
           cat > puantaj/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
@@ -138,7 +145,7 @@ jobs:
           cat > puantaj/app/src/main/res/values/colors.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <color name="puantaj_icon_background">#0F0D13</color>
+              <color name="puantaj_icon_background">#261D37</color>
           </resources>
           EOF
 
