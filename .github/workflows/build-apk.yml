@@ -1,4 +1,4 @@
-name: Puantaj APK v0.5.26
+name: 4011 Model APK v0.5.27
 
 on:
   push:
@@ -72,8 +72,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 29
-                  versionName '0.5.26'
+                  versionCode 30
+                  versionName '0.5.27'
               }
           }
           dependencies {
@@ -85,7 +85,7 @@ jobs:
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <application
                   android:theme="@style/Theme.Puantaj"
-                  android:label="Puantaj"
+                  android:label="4011 Model"
                   android:icon="@mipmap/ic_launcher"
                   android:roundIcon="@mipmap/ic_launcher_round"
                   android:allowBackup="true"
@@ -166,7 +166,7 @@ jobs:
 
           cat > puantaj/app/src/main/res/values/strings.xml <<'EOF'
           <resources>
-              <string name="app_name">Puantaj</string>
+              <string name="app_name">4011 Model</string>
           </resources>
           EOF
 
@@ -584,10 +584,10 @@ jobs:
                   Button returnTrain = choice("Dönüş trenleri");
                   outbound.setTextSize(13);
                   returnTrain.setTextSize(13);
-                  LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(0, dp(52), 1f);
+                  LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(0, dp(44), 1f);
                   half.setMargins(0, 0, dp(6), dp(8));
                   outbound.setLayoutParams(half);
-                  LinearLayout.LayoutParams half2 = new LinearLayout.LayoutParams(0, dp(52), 1f);
+                  LinearLayout.LayoutParams half2 = new LinearLayout.LayoutParams(0, dp(44), 1f);
                   half2.setMargins(dp(6), 0, 0, dp(8));
                   returnTrain.setLayoutParams(half2);
                   trainButtons.addView(outbound);
@@ -601,8 +601,6 @@ jobs:
                           "13102", "13104", "13106", "13108", "53503"
                   }, "Dönüş trenini seç"));
 
-                  c.addView(text("İstersen hazır seçeneklerden seçebilir veya Tren no alanına manuel yazabilirsin.",
-                          12, Color.rgb(155,148,165), false));
           
                   c.addView(section("Başlangıç"));
 
@@ -1010,10 +1008,10 @@ jobs:
                   outbound.setTextSize(13);
                   returnTrain.setTextSize(13);
 
-                  LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(0, dp(52), 1f);
+                  LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(0, dp(44), 1f);
                   half.setMargins(0, 0, dp(6), dp(8));
                   outbound.setLayoutParams(half);
-                  LinearLayout.LayoutParams half2 = new LinearLayout.LayoutParams(0, dp(52), 1f);
+                  LinearLayout.LayoutParams half2 = new LinearLayout.LayoutParams(0, dp(44), 1f);
                   half2.setMargins(dp(6), 0, 0, dp(8));
                   returnTrain.setLayoutParams(half2);
                   trainButtons.addView(outbound);
@@ -1137,10 +1135,21 @@ jobs:
                       for (String person : ownerList()) {
                           LinearLayout row = new LinearLayout(this);
                           row.setGravity(Gravity.CENTER_VERTICAL);
+                          row.setPadding(0, dp(2), 0, dp(2));
                           TextView name = text(person, 15, Color.rgb(235,230,242), true);
+                          name.setGravity(Gravity.CENTER_VERTICAL);
                           row.addView(name, new LinearLayout.LayoutParams(0, dp(48), 1f));
-                          Button remove = action("Sil", false);
+                          Button remove = new Button(this);
+                          remove.setText("Sil");
                           remove.setTextSize(12);
+                          remove.setTextColor(Color.rgb(238,234,245));
+                          remove.setAllCaps(false);
+                          remove.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                          remove.setMinHeight(0);
+                          remove.setPadding(0, 0, 0, 0);
+                          GradientDrawable removeBg = bg(Color.rgb(45,41,52), 18);
+                          removeBg.setStroke(dp(1), Color.rgb(82,74,96));
+                          remove.setBackground(removeBg);
                           remove.setOnClickListener(v -> new AlertDialog.Builder(this)
                                   .setTitle("Kişiyi sil")
                                   .setMessage(person + " hazır listesinden çıkarılsın mı?")
@@ -1158,7 +1167,7 @@ jobs:
                                       }
                                       renderPeople[0].run();
                                   }).show());
-                          row.addView(remove, new LinearLayout.LayoutParams(dp(74), dp(50)));
+                          row.addView(remove, new LinearLayout.LayoutParams(dp(82), dp(48)));
                           peopleContainer.addView(row);
                       }
                   };
@@ -1395,10 +1404,12 @@ jobs:
 
                       LinearLayout filterCard = card();
                       filterCard.setBackground(bg(Color.rgb(40,32,55), 22));
-                      filterCard.addView(section("Kayıt dönemi"));
+                      TextView periodSection = section("Kayıt dönemi");
+                      periodSection.setPadding(dp(4), dp(6), dp(4), dp(4));
+                      filterCard.addView(periodSection);
 
                       TextView yearLabel = text("YIL", 11, Color.rgb(183,161,220), true);
-                      yearLabel.setPadding(dp(2), 0, 0, dp(4));
+                      yearLabel.setPadding(dp(2), 0, 0, dp(2));
                       filterCard.addView(yearLabel);
 
                       Spinner yearSpinner = new Spinner(this);
@@ -1409,10 +1420,10 @@ jobs:
                       );
                       yearSpinner.setAdapter(yearAdapter);
                       yearSpinner.setSelection(defaultYearIndex);
-                      filterCard.addView(yearSpinner, new LinearLayout.LayoutParams(-1, dp(54)));
+                      filterCard.addView(yearSpinner, new LinearLayout.LayoutParams(-1, dp(42)));
 
                       TextView monthLabel = text("AY", 11, Color.rgb(183,161,220), true);
-                      monthLabel.setPadding(dp(2), dp(10), 0, dp(4));
+                      monthLabel.setPadding(dp(2), dp(4), 0, dp(2));
                       filterCard.addView(monthLabel);
 
                       Spinner monthSpinner = new Spinner(this);
@@ -1423,7 +1434,7 @@ jobs:
                       );
                       monthSpinner.setAdapter(monthAdapter);
                       monthSpinner.setSelection(defaultMonthIndex);
-                      filterCard.addView(monthSpinner, new LinearLayout.LayoutParams(-1, dp(54)));
+                      filterCard.addView(monthSpinner, new LinearLayout.LayoutParams(-1, dp(42)));
 
                       root.addView(filterCard);
 
@@ -1791,13 +1802,13 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.26.apk"
-          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.26.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.5.27.apk"
+          test -s "$GITHUB_WORKSPACE/4011-Model-v0.5.27.apk"
 
       # v5 hâlâ Node 20 hedefliyormuş (GitHub'daki uyarı buradan geliyordu),
       # v6 Node 24 ile native uyumlu - kullanım şeklimiz (name/path) değişmedi.
       - name: APK'yı yükle
         uses: actions/upload-artifact@v6
         with:
-          name: Puantaj-v0.5.26
-          path: ${{ github.workspace }}/Puantaj-v0.5.26.apk
+          name: 4011-Model-v0.5.27
+          path: ${{ github.workspace }}/4011-Model-v0.5.27.apk
