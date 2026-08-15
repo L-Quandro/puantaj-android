@@ -1,4 +1,4 @@
-name: Puantaj APK v0.5.25
+name: Puantaj APK v0.5.26
 
 on:
   push:
@@ -72,8 +72,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 28
-                  versionName '0.5.25'
+                  versionCode 29
+                  versionName '0.5.26'
               }
           }
           dependencies {
@@ -103,25 +103,24 @@ jobs:
           </manifest>
           EOF
 
-          # KRITIK IKON DÜZELTMESİ (v0.5.25):
-          # Kök neden: puantaj_app_icon.png'nin kendisi zaten köşeleri yuvarlatılmış
-          # ve etrafı SIYAH dolgulu olarak dışa aktarılmıştı (alfa kanalı yoktu).
-          # Bu görsel foreground katmanına konunca, Android'in KENDİ maskesi
-          # (launcher'a göre daire/squircle/yuvarlak kare) görselin üzerine BİR KEZ
-          # DAHA uygulanıyordu. Görsel önce %20 INSET ile küçültülüp ortalandığı için,
-          # görselin kendi kenarı ile launcher'ın maske kenarı arasında bir boşluk
-          # oluşuyor ve bu boşlukta background rengi ince bir ÇİZGİ/HALKA olarak
-          # görünüyordu (önce siyah, rengi değiştirince mor çizgi - background HER
-          # ZAMAN görselin kendi kenarından biraz taşacağı için renk ne olursa olsun
-          # çizgi kalıyordu).
+          # KRITIK IKON DÜZELTMESİ (v0.5.26 - KESİN ÇÖZÜM):
+          # Önceki 2 denemede hata payı XML tarafında (inset / background rengi)
+          # aranmıştı, asıl doğru yöntem bu değildi:
+          #  - %20 inset + ayrı background rengi -> boşlukta ince renkli çizgi/halka
+          #  - inset'i tamamen kaldırmak -> görsel launcher maskesinden taşıp
+          #    PUANTAJ yazısı ve işaretler kenarlardan kırpılıyordu
           #
-          # Çözüm: (1) PNG'nin siyah dolgu/köşe kısmı şeffaf hale getirildi, (2)
-          # foreground artık INSET ILE KÜÇÜLTÜLMÜYOR, tam kanvası (0% inset, edge-to-
-          # edge) dolduruyor. Böylece background rengi hiçbir yerde görsel kenarından
-          # taşıp halka oluşturmuyor; hangi launcher maskesi uygulanırsa uygulansın
-          # (daire, squircle, yuvarlak kare) görsel tam kenara kadar gidiyor, çizgi
-          # oluşmuyor. Tasarımın kendi iç boşluğu (tren ve yazının etrafındaki pay)
-          # zaten yeterli güvenli alanı sağlıyor, ek inset gerekmiyor.
+          # KESİN ÇÖZÜM: güvenli alan payı artık Android'e XML üzerinden
+          # bırakılmıyor, doğrudan PNG'nin İÇİNE gömülü geliyor. puantaj_app_icon.png
+          # artık kendi güvenli-alan boşluğunu (görsel %68 boyutunda, kenarlarda
+          # tasarımın kendi tonuyla eşleşen dolgu ile) zaten içeriyor. Böylece:
+          #  - foreground her zaman TEK PARÇA opak bir bitmap - background rengi
+          #    hiçbir yerde görünmüyor, dolayısıyla renk uyuşmazlığından çizgi
+          #    oluşamaz
+          #  - hangi launcher maskesi uygulanırsa uygulansın (daire/squircle/
+          #    yuvarlak kare) kırpılan kısım her zaman bizim bilerek bıraktığımız
+          #    boş kenar oluyor, asla tren/yazı/işaretler kırpılmıyor
+          # XML tarafında ekstra inset/hesap gerekmiyor, gravity="fill" yeterli.
           cat > puantaj/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
@@ -1792,11 +1791,13 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.25.apk"
-          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.25.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Puantaj-v0.5.26.apk"
+          test -s "$GITHUB_WORKSPACE/Puantaj-v0.5.26.apk"
 
+      # v5 hâlâ Node 20 hedefliyormuş (GitHub'daki uyarı buradan geliyordu),
+      # v6 Node 24 ile native uyumlu - kullanım şeklimiz (name/path) değişmedi.
       - name: APK'yı yükle
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
-          name: Puantaj-v0.5.25
-          path: ${{ github.workspace }}/Puantaj-v0.5.25.apk
+          name: Puantaj-v0.5.26
+          path: ${{ github.workspace }}/Puantaj-v0.5.26.apk
