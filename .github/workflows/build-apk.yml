@@ -9,9 +9,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # v4 -> v5: GitHub Actions runner Node.js 20'yi kaldırıyor (Node 24'e geçiyor).
-      # v4 bu yeni runtime için "deprecated" uyarısı veriyordu; v5 Node 24 ile
-      # native uyumlu olduğu için uyarı kayboluyor, davranışta hiçbir değişiklik yok.
       - name: Depoyu indir
         uses: actions/checkout@v5
 
@@ -25,8 +22,6 @@ jobs:
           mkdir -p puantaj/app/src/main/res/drawable
           mkdir -p puantaj/app/src/main/res/mipmap-anydpi-v26
 
-          # Uygulama simgesi: GitHub deposundaki puantaj_app_icon.png aynen kullanılır.
-          # PNG yeniden kırpılmaz, yeniden boyutlandırılmaz ve başka bir görsel ile birleştirilmez.
           test -s "$GITHUB_WORKSPACE/puantaj_app_icon.png"
           cp "$GITHUB_WORKSPACE/puantaj_app_icon.png" puantaj/app/src/main/res/drawable-nodpi/puantaj_icon.png
           test -s puantaj/app/src/main/res/drawable-nodpi/puantaj_icon.png
@@ -103,24 +98,6 @@ jobs:
           </manifest>
           EOF
 
-          # KRITIK IKON DÜZELTMESİ (v0.5.26 - KESİN ÇÖZÜM):
-          # Önceki 2 denemede hata payı XML tarafında (inset / background rengi)
-          # aranmıştı, asıl doğru yöntem bu değildi:
-          #  - %20 inset + ayrı background rengi -> boşlukta ince renkli çizgi/halka
-          #  - inset'i tamamen kaldırmak -> görsel launcher maskesinden taşıp
-          #    PUANTAJ yazısı ve işaretler kenarlardan kırpılıyordu
-          #
-          # KESİN ÇÖZÜM: güvenli alan payı artık Android'e XML üzerinden
-          # bırakılmıyor, doğrudan PNG'nin İÇİNE gömülü geliyor. puantaj_app_icon.png
-          # artık kendi güvenli-alan boşluğunu (görsel %68 boyutunda, kenarlarda
-          # tasarımın kendi tonuyla eşleşen dolgu ile) zaten içeriyor. Böylece:
-          #  - foreground her zaman TEK PARÇA opak bir bitmap - background rengi
-          #    hiçbir yerde görünmüyor, dolayısıyla renk uyuşmazlığından çizgi
-          #    oluşamaz
-          #  - hangi launcher maskesi uygulanırsa uygulansın (daire/squircle/
-          #    yuvarlak kare) kırpılan kısım her zaman bizim bilerek bıraktığımız
-          #    boş kenar oluyor, asla tren/yazı/işaretler kırpılmıyor
-          # XML tarafında ekstra inset/hesap gerekmiyor, gravity="fill" yeterli.
           cat > puantaj/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
@@ -242,8 +219,6 @@ jobs:
                   }
               }
 
-              // v0.5.18: hazır isim otomatik seçimi yalnızca 1. aşama (görev başlatma) içindir;
-              // 2. aşama (görev bitişi/otel) manuel giriş ile başlar, hazır liste yalnızca tik ile açılır.
               class OwnerPicker {
                   final TextInputLayout input;
                   final CheckBox modeCheck;
@@ -252,9 +227,6 @@ jobs:
                   final boolean listFirst;
                   String selected = "";
 
-                  // listFirst=true: başlangıç/final kayıtta önce hazır kişi seçimi gösterilir.
-                  // listFirst=false: ara teslim/tesellümde önce manuel giriş gösterilir;
-                  // kullanıcı isterse tik ile hazır listeden seçim moduna geçer.
                   OwnerPicker(LinearLayout parent, String label) {
                       this(parent, label, true);
                   }
@@ -277,13 +249,10 @@ jobs:
                       parent.addView(input);
 
                       if (listFirst) {
-                          // Başlangıç/final kaydında hiçbir isim otomatik yazılmaz.
-                          // Kullanıcı önce seçim ekranından bir isim seçer.
                           chooser.setVisibility(View.VISIBLE);
                           input.setVisibility(View.GONE);
                           modeCheck.setChecked(false);
                       } else {
-                          // Ara teslim/tesellüm alanı manuel giriş ile başlar.
                           chooser.setVisibility(View.GONE);
                           input.setVisibility(View.VISIBLE);
                           modeCheck.setChecked(false);
@@ -297,12 +266,9 @@ jobs:
                               chooser.setVisibility(checked ? View.GONE : View.VISIBLE);
                               if (checked) {
                                   selected = "";
-                                  input.getEditText().setText("");
+                                  if (input.getEditText() != null) input.getEditText().setText("");
                               }
                           } else {
-                              // Ara teslim/tesellüm: manuel alan her zaman görünür.
-                              // Tik yalnızca hazır isim listesini açar; seçim sonrası
-                              // isim manuel alana aktarılır ve tik kapanır.
                               chooser.setVisibility(View.GONE);
                               input.setVisibility(View.VISIBLE);
                               if (checked) {
@@ -336,7 +302,7 @@ jobs:
                                       modeCheck.setChecked(false);
                                   } else {
                                       input.setVisibility(View.VISIBLE);
-                                      input.getEditText().setText(selected);
+                                      if (input.getEditText() != null) input.getEditText().setText(selected);
                                       chooser.setVisibility(View.GONE);
                                       modeCheck.setChecked(false);
                                   }
@@ -365,14 +331,14 @@ jobs:
                               modeCheck.setChecked(false);
                           } else {
                               input.setVisibility(View.VISIBLE);
-                              input.getEditText().setText(selected);
+                              if (input.getEditText() != null) input.getEditText().setText(selected);
                               chooser.setVisibility(View.GONE);
                               modeCheck.setChecked(false);
                           }
                       } else {
                           selected = "";
                           modeCheck.setChecked(listFirst);
-                          input.getEditText().setText(value);
+                          if (input.getEditText() != null) input.getEditText().setText(value);
                       }
                   }
               }
@@ -409,6 +375,15 @@ jobs:
                   } else {
                       home();
                   }
+              }
+
+              String formatTrainName(String tName) {
+                  if (tName == null) return "";
+                  String upper = tName.toUpperCase(new Locale("tr", "TR"));
+                  if (upper.startsWith("İPTAL") || upper.contains("TATİL") || upper.contains("GÜN") || upper.contains("İZİN") || upper.startsWith("DESTEK")) {
+                      return upper;
+                  }
+                  return "TREN " + tName;
               }
           
               GradientDrawable bg(int color, float radius) {
@@ -601,10 +576,42 @@ jobs:
                           "13102", "13104", "13106", "13108", "53503"
                   }, "Dönüş trenini seç"));
 
-          
-                  c.addView(section("Başlangıç"));
-
                   OwnerPicker ownerPicker = new OwnerPicker(c, "Teslim / tesellüm sahibi");
+
+                  c.addView(section("Özel Durumlar ve İzinler"));
+                  Button specialBtn = choice("★ İzin / İptal / Destek Ekle");
+                  specialBtn.setTextColor(Color.rgb(230,200,100));
+                  c.addView(specialBtn);
+                  specialBtn.setOnClickListener(v -> {
+                      String[] options = {"Hafta Tatili", "Boş Gün", "Yıllık İzin", "Tren İptali", "Destek 1", "Destek 2", "Destek 3"};
+                      new AlertDialog.Builder(this)
+                          .setTitle("Durum veya Görev Seç")
+                          .setItems(options, (dialog, which) -> {
+                              String sel = options[which];
+                              if (sel.equals("Tren İptali")) {
+                                  TextInputLayout cancelInput = field("İptal olan tren numarası");
+                                  new AlertDialog.Builder(this)
+                                      .setTitle("Tren İptali")
+                                      .setView(cancelInput)
+                                      .setPositiveButton("Ekle", (d2, w2) -> {
+                                          String tNo = value(cancelInput);
+                                          if (!tNo.isEmpty() && train.getEditText() != null) {
+                                              train.getEditText().setText("İptal: " + tNo);
+                                          }
+                                      })
+                                      .setNegativeButton("Vazgeç", null)
+                                      .show();
+                              } else {
+                                  if (train.getEditText() != null) train.getEditText().setText(sel);
+                                  if (sel.equals("Hafta Tatili") || sel.equals("Boş Gün") || sel.equals("Yıllık İzin")) {
+                                      if (person.getEditText() != null) person.getEditText().setText("-");
+                                      ownerPicker.setValue("-");
+                                  }
+                              }
+                          }).show();
+                  });
+
+                  c.addView(section("Başlangıç"));
 
                   Button startButton = choice("Saat seç  •  Henüz seçilmedi");
                   c.addView(startButton);
@@ -835,7 +842,7 @@ jobs:
 
                       found = true;
                       LinearLayout c = card();
-                      c.addView(text("TREN " + a[3], 18, Color.rgb(245,243,250), true));
+                      c.addView(text(formatTrainName(a[3]), 18, Color.rgb(245,243,250), true));
                       c.addView(text(a[1] + "  •  " + a[2], 14, Color.rgb(175,168,185), false));
                       c.addView(text("Başlangıç  " + a[4] + "  •  Tesellüm: " + a[5],
                               14, Color.rgb(205,196,220), false));
@@ -878,7 +885,7 @@ jobs:
                   page("Görevi Sonlandır", "Bitişte eve giriş otomatik +30 dakika. Otelde kalacaksan görevi devam ettirebilirsin.");
 
                   LinearLayout summary = card();
-                  summary.addView(text("TREN " + a[3], 20, Color.rgb(245,243,250), true));
+                  summary.addView(text(formatTrainName(a[3]), 20, Color.rgb(245,243,250), true));
                   summary.addView(text(a[2], 14, Color.rgb(190,182,200), false));
                   summary.addView(text("Başlangıç  " + a[4] + "  •  " + a[1], 14, Color.rgb(205,196,220), false));
                   summary.addView(text("Başlangıç tesellüm sahibi  •  " + a[5], 13, Color.rgb(175,168,185), false));
@@ -974,7 +981,7 @@ jobs:
 
                   LinearLayout summary = card();
                   summary.addView(text("ÖNCEKİ SEGMENT", 11, Color.rgb(183,161,220), true));
-                  summary.addView(text("TREN " + a[3], 20, Color.rgb(245,243,250), true));
+                  summary.addView(text(formatTrainName(a[3]), 20, Color.rgb(245,243,250), true));
                   summary.addView(text(a[2] + "  •  Önceki görev", 14, Color.rgb(190,182,200), false));
                   summary.addView(text("Otele teslim  •  " + a[7] + " " + a[8], 14, Color.rgb(205,196,220), false));
                   summary.addView(text("Otele varış  •  " + a[10] + "  (+30 dk çalışma)", 13, Color.rgb(175,168,185), false));
@@ -1318,7 +1325,6 @@ jobs:
                       return;
                   }
 
-                  // Aynı servis zincirine ait tüm segmentleri chainId üzerinden tek kartta topluyoruz.
                   LinkedHashMap<String, ArrayList<String>> chains = new LinkedHashMap<>();
                   for (String r : records) {
                       String[] a = r.split("\\|", -1);
@@ -1336,17 +1342,27 @@ jobs:
                   ArrayList<ArrayList<String>> sortedChains = new ArrayList<>(chains.values());
 
                   Collections.sort(sortedChains, (x, y) -> {
+                      boolean xOpen = false;
+                      if (!x.isEmpty()) {
+                          String status = x.get(x.size() - 1).split("\\|", -1)[6];
+                          xOpen = status.equals("OPEN") || status.equals("HOTEL");
+                      }
+                      boolean yOpen = false;
+                      if (!y.isEmpty()) {
+                          String status = y.get(y.size() - 1).split("\\|", -1)[6];
+                          yOpen = status.equals("OPEN") || status.equals("HOTEL");
+                      }
+
+                      if (xOpen && !yOpen) return -1;
+                      if (!xOpen && yOpen) return 1;
+
                       String[] a = x.get(0).split("\\|", -1);
                       String[] b = y.get(0).split("\\|", -1);
-
                       int dateCompare = compareDates(a[1], b[1]);
                       if (dateCompare != 0) return dateCompare;
-
                       return a[4].compareTo(b[4]);
                   });
 
-                  // Yıl seçimi 2025-2100 arasında sabit tutulur.
-                  // Yeni bir yıl için önceden kayıt bulunması gerekmez.
                   TreeSet<Integer> yearSet = new TreeSet<>();
                   for (int y = 2025; y <= 2100; y++) {
                       yearSet.add(y);
@@ -1368,7 +1384,6 @@ jobs:
                               "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
                       };
 
-                      // Varsayılan olarak en son kayıtlı yıl ve ay seçilir.
                       int defaultYearIndex = years.length - 1;
                       int defaultMonthIndex = 0;
                       int latestYear = years[defaultYearIndex];
@@ -1451,8 +1466,6 @@ jobs:
                           int visibleChains = 0;
 
                           for (ArrayList<String> chain : sortedChains) {
-                              // Zincirin seçilen ay/yılda en az bir çalışma veya otel segmenti
-                              // içermesi halinde bu ay altında gösterilir.
                               boolean belongsToMonth = false;
                               for (String r : chain) {
                                   String[] a = r.split("\\|", -1);
@@ -1492,9 +1505,6 @@ jobs:
                               boolean completed = false;
                               String firstRecord = "";
 
-                              // Servis zincirinin başlangıcı, zincirdeki en erken tarihli
-                              // kayıttır. İlk kayıt otele dönüşe çevrilmiş olsa bile a[1] ve
-                              // a[2..5] başlangıçta girilen gerçek görev bilgilerini korur.
                               for (String segment : chain) {
                                   String[] a = segment.split("\\|", -1);
                                   if (a.length < 2) continue;
@@ -1507,7 +1517,6 @@ jobs:
                                   startDate = first[1];
                               }
 
-                              // Bitiş tarihi yalnızca gerçek görev segmentlerinden alınır.
                               for (String segment : chain) {
                                   String[] a = segment.split("\\|", -1);
                                   if (a.length < 7) continue;
@@ -1534,8 +1543,6 @@ jobs:
                                       Color.rgb(245,243,250), true);
                               final String deleteChainId = chain.get(0).split("\\|", -1)[0];
 
-                              // Sadece servis başlığına uzun basınca bütün servis zincirini
-                              // silme onayı açılır. Kartın diğer bölümleri bu işlemi tetiklemez.
                               serviceTitle.setOnLongClickListener(v -> {
                                   new AlertDialog.Builder(this)
                                           .setTitle("Kaydı sil")
@@ -1556,8 +1563,6 @@ jobs:
                               });
                               chainCard.addView(serviceTitle);
 
-                              // Üst başlıkta tekrar eden tren/kiminle/başlangıç bilgileri yok.
-                              // Bu bilgiler artık ait oldukları tarih segmentinde ayrıntılı gösterilir.
                               chainCard.addView(text(
                                       completed ? "SERVİS TAMAMLANDI" : "SERVİS DEVAM EDİYOR",
                                       12,
@@ -1570,17 +1575,12 @@ jobs:
 
                                   String status = a[6];
 
-                                  // Otel/bekleme segmenti, o günün görev başlangıç bilgilerini
-                                  // ve ardından otel teslim/varış bilgilerini birlikte gösterir.
                                   if ("HOTEL".equals(status) || "HOTEL_DONE".equals(status)) {
                                       if (a.length >= 11) {
                                           LinearLayout hotel = card();
                                           hotel.setBackground(bg(Color.rgb(33,28,43), 18));
 
-                                          // Otel dönüşüne çevrilmiş ilk kayıt da gerçek görev
-                                          // başlangıcı olduğu için, başlangıçta girilen tüm bilgiler
-                                          // bu tarih kartında korunur ve gösterilir.
-                                          hotel.addView(text(a[1] + "  •  TREN " + a[3], 16,
+                                          hotel.addView(text(a[1] + "  •  " + formatTrainName(a[3]), 16,
                                                   Color.rgb(245,243,250), true));
                                           hotel.addView(text("Kiminle  •  " + a[2], 13,
                                                   Color.rgb(205,196,220), false));
@@ -1666,12 +1666,11 @@ jobs:
                                       continue;
                                   }
 
-                                  // Çalışılan her tarih ayrı segment olarak görünür.
                                   LinearLayout segmentCard = card();
                                   segmentCard.setBackground(bg(Color.rgb(35,31,42), 18));
 
                                   segmentCard.addView(text(
-                                          a[1] + "  •  TREN " + a[3],
+                                          a[1] + "  •  " + formatTrainName(a[3]),
                                           16, Color.rgb(245,243,250), true));
 
                                   segmentCard.addView(text(
@@ -1773,12 +1772,10 @@ jobs:
                       if (raw.trim().isEmpty()) continue;
                       String[] a = raw.split("\\|", -1);
 
-                      // Eski OPEN kayit formati: id|date|person|train|start|OPEN
                       if (a.length == 6 && a[5].equals("OPEN")) {
                           raw = a[0] + "|" + a[1] + "|" + a[2] + "|" + a[3] + "|" +
                                   a[4] + "|Belirtilmedi|OPEN";
                       }
-                      // Eski DONE kayit formati: id|date|person|train|start|DONE|finishDate|finish|owner|arrival
                       else if (a.length == 10 && a[5].equals("DONE")) {
                           raw = a[0] + "|" + a[1] + "|" + a[2] + "|" + a[3] + "|" +
                                   a[4] + "|Belirtilmedi|DONE|" + a[6] + "|" + a[7] + "|" +
@@ -1805,8 +1802,6 @@ jobs:
           cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.5.27.apk"
           test -s "$GITHUB_WORKSPACE/4011-Model-v0.5.27.apk"
 
-      # v5 hâlâ Node 20 hedefliyormuş (GitHub'daki uyarı buradan geliyordu),
-      # v6 Node 24 ile native uyumlu - kullanım şeklimiz (name/path) değişmedi.
       - name: APK'yı yükle
         uses: actions/upload-artifact@v6
         with:
