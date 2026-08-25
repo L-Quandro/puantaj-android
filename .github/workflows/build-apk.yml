@@ -1,4 +1,4 @@
-name: 4011 Model APK v0.5.27
+Name: 4011 Model APK v0.5.28
 
 on:
   push:
@@ -67,8 +67,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 30
-                  versionName '0.5.27'
+                  versionCode 31
+                  versionName '0.5.28'
               }
           }
           dependencies {
@@ -380,7 +380,7 @@ jobs:
               String formatTrainName(String tName) {
                   if (tName == null) return "";
                   String upper = tName.toUpperCase(new Locale("tr", "TR"));
-                  if (upper.startsWith("İPTAL") || upper.contains("TATİL") || upper.contains("GÜN") || upper.contains("İZİN") || upper.startsWith("DESTEK")) {
+                  if (upper.startsWith("İPTAL") || upper.contains("TATİL") || upper.contains("GÜN") || upper.contains("İZİN")) {
                       return upper;
                   }
                   return "TREN " + tName;
@@ -579,22 +579,52 @@ jobs:
                   OwnerPicker ownerPicker = new OwnerPicker(c, "Teslim / tesellüm sahibi");
 
                   c.addView(section("Özel Durumlar ve İzinler"));
-                  Button specialBtn = choice("★ İzin / İptal / Destek Ekle");
+                  Button specialBtn = choice("★ İzin / İptal Ekle");
                   specialBtn.setTextColor(Color.rgb(230,200,100));
                   c.addView(specialBtn);
                   specialBtn.setOnClickListener(v -> {
-                      String[] options = {"Hafta Tatili", "Boş Gün", "Yıllık İzin", "Tren İptali", "Destek 1", "Destek 2", "Destek 3"};
+                      String[] options = {"Hafta Tatili", "Boş Gün", "Yıllık İzin", "Tren İptali", "İptal", "İptal", "İptal"};
                       new AlertDialog.Builder(this)
                           .setTitle("Durum veya Görev Seç")
                           .setItems(options, (dialog, which) -> {
                               String sel = options[which];
                               if (sel.equals("Tren İptali")) {
-                                  TextInputLayout cancelInput = field("İptal olan tren numarası");
+                                  // Ortak gidiş/dönüş tren listesi + manuel giriş penceresi
+                                  String[] allTrains = {
+                                      "23201", "23202", "23205", "23207",
+                                      "13102", "13104", "13106", "13108", "53503"
+                                  };
+                                  
+                                  LinearLayout cancelBox = new LinearLayout(this);
+                                  cancelBox.setOrientation(LinearLayout.VERTICAL);
+                                  cancelBox.setPadding(dp(16), dp(8), dp(16), 0);
+                                  
+                                  TextInputLayout manualInput = field("Veya manuel tren no gir");
+                                  Button trainListBtn = choice("Ortak Trenden Seç");
+                                  cancelBox.addView(trainListBtn);
+                                  cancelBox.addView(manualInput);
+
+                                  final String[] chosenCancelTrain = {""};
+
+                                  trainListBtn.setOnClickListener(tb -> {
+                                      new AlertDialog.Builder(this)
+                                          .setTitle("İptal Edilecek Treni Seç")
+                                          .setItems(allTrains, (d3, w3) -> {
+                                              chosenCancelTrain[0] = allTrains[w3];
+                                              trainListBtn.setText("Seçilen Tren: " + chosenCancelTrain[0]);
+                                              if (manualInput.getEditText() != null) {
+                                                  manualInput.getEditText().setText(chosenCancelTrain[0]);
+                                              }
+                                          })
+                                          .setNegativeButton("İptal", null)
+                                          .show();
+                                  });
+
                                   new AlertDialog.Builder(this)
                                       .setTitle("Tren İptali")
-                                      .setView(cancelInput)
+                                      .setView(cancelBox)
                                       .setPositiveButton("Ekle", (d2, w2) -> {
-                                          String tNo = value(cancelInput);
+                                          String tNo = value(manualInput);
                                           if (!tNo.isEmpty() && train.getEditText() != null) {
                                               train.getEditText().setText("İptal: " + tNo);
                                           }
@@ -603,7 +633,7 @@ jobs:
                                       .show();
                               } else {
                                   if (train.getEditText() != null) train.getEditText().setText(sel);
-                                  if (sel.equals("Hafta Tatili") || sel.equals("Boş Gün") || sel.equals("Yıllık İzin")) {
+                                  if (sel.equals("Hafta Tatili") || sel.equals("Boş Gün") || sel.equals("Yıllık İzin") || sel.equals("İptal")) {
                                       if (person.getEditText() != null) person.getEditText().setText("-");
                                       ownerPicker.setValue("-");
                                   }
@@ -622,14 +652,39 @@ jobs:
                   Button save = action("Görevi Başlat ve Kaydet", true);
                   root.addView(save);
                   save.setOnClickListener(v -> {
-                      if (value(person).isEmpty() || value(train).isEmpty() ||
+                      String currentTrainVal = value(train);
+                      boolean isSpecialCase = currentTrainVal.equals("Hafta Tatili") || 
+                                              currentTrainVal.equals("Boş Gün") || 
+                                              currentTrainVal.equals("Yıllık İzin") || 
+                                              currentTrainVal.equals("İptal") || 
+                                              currentTrainVal.startsWith("İptal:");
+
+                      if (isSpecialCase) {
+                          // Özel durumlarda sadece tarih ve açıklama yeterli (sadelik kuralı)
+                          if (currentTrainVal.isEmpty()) {
+                              Toast.makeText(this, "Özel durum açıklaması gerekli.", Toast.LENGTH_LONG).show();
+                              return;
+                          }
+                          String chainId = UUID.randomUUID().toString();
+                          String record = chainId + "|" + selectedStartDate + "|" +
+                                  "-" + "|" + currentTrainVal + "|" +
+                                  "00:00" + "|" + "-" + "|DONE|" + selectedStartDate + "|" +
+                                  "00:00" + "|" + "-" + "|" + selectedStartDate + " 00:00";
+                          records.add(record);
+                          persist();
+                          Toast.makeText(this, "Özel durum kaydedildi.", Toast.LENGTH_SHORT).show();
+                          home();
+                          return;
+                      }
+
+                      if (value(person).isEmpty() || currentTrainVal.isEmpty() ||
                               ownerPicker.value().isEmpty() || selectedStart.isEmpty()) {
                           Toast.makeText(this, "Kiminle, tren no, teslim/tesellüm sahibi ve başlangıç saati gerekli.", Toast.LENGTH_LONG).show();
                           return;
                       }
                       String chainId = UUID.randomUUID().toString();
                       String record = chainId + "|" + selectedStartDate + "|" +
-                              value(person) + "|" + value(train) + "|" + selectedStart + "|" +
+                              value(person) + "|" + currentTrainVal + "|" + selectedStart + "|" +
                               ownerPicker.value() + "|OPEN";
                       records.add(record);
                       rememberOwner(ownerPicker.value());
@@ -1799,11 +1854,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.5.27.apk"
-          test -s "$GITHUB_WORKSPACE/4011-Model-v0.5.27.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.5.28.apk"
+          test -s "$GITHUB_WORKSPACE/4011-Model-v0.5.28.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v6
         with:
-          name: 4011-Model-v0.5.27
-          path: ${{ github.workspace }}/4011-Model-v0.5.27.apk
+          name: 4011-Model-v0.5.28
+          path: ${{ github.workspace }}/4011-Model-v0.5.28.apk
