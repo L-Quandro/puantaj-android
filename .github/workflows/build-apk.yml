@@ -297,4 +297,1607 @@ jobs:
                               .setTitle(label)
                               .setSingleChoiceItems(items, checked, (d, which) -> {
                                   selected = items[which];
-             
+                                  chooser.setText(label + "  •  " + selected);
+                                  if (listFirst) {
+                                      modeCheck.setChecked(false);
+                                  } else {
+                                      input.setVisibility(View.VISIBLE);
+                                      if (input.getEditText() != null) input.getEditText().setText(selected);
+                                      chooser.setVisibility(View.GONE);
+                                      modeCheck.setChecked(false);
+                                  }
+                                  d.dismiss();
+                              })
+                              .setNegativeButton("İptal", null)
+                              .show();
+                  }
+
+                  String value() {
+                      if (listFirst) {
+                          return modeCheck.isChecked() ? MainActivity.this.value(input) :
+                                  (selected == null ? "" : selected);
+                      }
+                      return modeCheck.isChecked() ? (selected == null ? "" : selected) :
+                              MainActivity.this.value(input);
+                  }
+
+                  void setValue(String value) {
+                      if (value == null) value = "";
+                      value = value.trim();
+                      if (useOwnerList() && ownerList().contains(value)) {
+                          selected = value;
+                          chooser.setText(label + "  •  " + selected);
+                          if (listFirst) {
+                              modeCheck.setChecked(false);
+                          } else {
+                              input.setVisibility(View.VISIBLE);
+                              if (input.getEditText() != null) input.getEditText().setText(selected);
+                              chooser.setVisibility(View.GONE);
+                              modeCheck.setChecked(false);
+                          }
+                      } else {
+                          selected = "";
+                          modeCheck.setChecked(listFirst);
+                          if (input.getEditText() != null) input.getEditText().setText(value);
+                      }
+                  }
+              }
+          
+              int dp(float v) {
+                  return (int)(v * getResources().getDisplayMetrics().density + 0.5f);
+              }
+          
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  prefs = getSharedPreferences("puantaj", MODE_PRIVATE);
+                  load();
+                  if (android.os.Build.VERSION.SDK_INT >= 33) {
+                      getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                              android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                              this::navigateBack);
+                  }
+                  home();
+              }
+
+              @Override
+              public void onBackPressed() {
+                  navigateBack();
+              }
+
+              void navigateBack() {
+                  if ("home".equals(currentPage)) {
+                      super.onBackPressed();
+                      return;
+                  }
+                  if ("complete".equals(currentPage) || "continue".equals(currentPage)) {
+                      ongoing();
+                  } else {
+                      home();
+                  }
+              }
+
+              String formatTrainName(String tName) {
+                  if (tName == null) return "";
+                  String upper = tName.toUpperCase(new Locale("tr", "TR"));
+                  if (upper.startsWith("İPTAL") || upper.contains("TATİL") || upper.contains("GÜN") || upper.contains("İZİN") || upper.startsWith("DESTEK")) {
+                      return upper;
+                  }
+                  return "TREN " + tName;
+              }
+
+              // Tek bir yerden yönetilen "özel durum" kontrolü: Hafta Tatili / Boş Gün /
+              // Yıllık İzin / İptal / Tren İptali (İptal: ...) / Destek 1-2-3.
+              // Yeni bir özel durum eklemek istersen sadece burayı güncellemen yeterli.
+              boolean isSpecialLabel(String v) {
+                  if (v == null || v.isEmpty()) return false;
+                  return v.equals("Hafta Tatili") || v.equals("Boş Gün") || v.equals("Yıllık İzin") ||
+                          v.equals("İptal") || v.startsWith("İptal:") || v.startsWith("Destek");
+              }
+          
+              GradientDrawable bg(int color, float radius) {
+                  GradientDrawable g = new GradientDrawable();
+                  g.setColor(color);
+                  g.setCornerRadius(dp(radius));
+                  return g;
+              }
+          
+              TextView text(String s, float size, int color, boolean bold) {
+                  TextView t = new TextView(this);
+                  t.setText(s);
+                  t.setTextSize(size);
+                  t.setTextColor(color);
+                  t.setTypeface(Typeface.DEFAULT, bold ? Typeface.BOLD : Typeface.NORMAL);
+                  return t;
+              }
+          
+              TextView title(String s) {
+                  TextView t = text(s, 30, Color.rgb(245,243,250), true);
+                  t.setPadding(0, 0, 0, dp(6));
+                  return t;
+              }
+          
+              TextView subtitle(String s) {
+                  TextView t = text(s, 15, Color.rgb(170,165,180), false);
+                  t.setPadding(0, 0, 0, dp(22));
+                  return t;
+              }
+          
+              TextView section(String s) {
+                  TextView t = text(s.toUpperCase(Locale.getDefault()), 12, Color.rgb(185,178,205), true);
+                  t.setLetterSpacing(.08f);
+                  t.setPadding(dp(4), dp(16), dp(4), dp(8));
+                  return t;
+              }
+          
+              LinearLayout card() {
+                  LinearLayout c = new LinearLayout(this);
+                  c.setOrientation(LinearLayout.VERTICAL);
+                  c.setPadding(dp(16), dp(14), dp(16), dp(14));
+                  c.setBackground(bg(Color.rgb(29,26,35), 22));
+                  LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, -2);
+                  p.setMargins(0, 0, 0, dp(12));
+                  c.setLayoutParams(p);
+                  return c;
+              }
+          
+              TextInputLayout field(String hint) {
+                  TextInputLayout box = new TextInputLayout(this);
+                  box.setHint(hint);
+                  box.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE);
+                  box.setBoxCornerRadii(dp(14),dp(14),dp(14),dp(14));
+                  box.setBoxStrokeColor(Color.rgb(115,100,150));
+                  box.setHintTextColor(android.content.res.ColorStateList.valueOf(Color.rgb(170,165,180)));
+                  box.setPadding(0, dp(4), 0, dp(8));
+          
+                  TextInputEditText edit = new TextInputEditText(box.getContext());
+                  edit.setSingleLine(true);
+                  edit.setTextSize(17);
+                  edit.setTextColor(Color.rgb(245,243,250));
+                  edit.setHintTextColor(Color.rgb(150,145,160));
+                  box.addView(edit, new LinearLayout.LayoutParams(-1, dp(54)));
+                  return box;
+              }
+          
+              String value(TextInputLayout box) {
+                  TextInputEditText e = (TextInputEditText)box.getEditText();
+                  return e == null || e.getText() == null ? "" : e.getText().toString().trim();
+              }
+          
+              Button action(String label, boolean primary) {
+                  Button b = new Button(this);
+                  b.setText(label);
+                  b.setTextSize(15);
+                  b.setTextColor(Color.rgb(248,246,252));
+                  b.setAllCaps(false);
+                  b.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                  b.setMinHeight(dp(52));
+                  b.setPadding(dp(10), 0, dp(10), 0);
+                  b.setBackground(bg(primary ? Color.rgb(112,83,170) : Color.rgb(45,41,52), 18));
+                  LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, dp(54));
+                  p.setMargins(0, dp(4), 0, dp(10));
+                  b.setLayoutParams(p);
+                  return b;
+              }
+          
+              Button choice(String label) {
+                  Button b = action(label, false);
+                  b.setTextSize(15);
+                  b.setGravity(Gravity.CENTER_VERTICAL);
+                  return b;
+              }
+          
+              void page(String heading, String desc) {
+                  ScrollView scroll = new ScrollView(this);
+                  scroll.setFillViewport(true);
+                  root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setPadding(dp(20), dp(24), dp(20), dp(28));
+                  root.setBackgroundColor(Color.rgb(15,13,19));
+                  scroll.addView(root);
+                  setContentView(scroll);
+                  root.addView(title(heading));
+                  if (!desc.isEmpty()) root.addView(subtitle(desc));
+              }
+          
+              void home() {
+                  currentPage = "home";
+                  page("PUANTAJ", "Günlük görevlerini hızlıca kaydet. Hesaplamaları uygulamaya bırak.");
+          
+                  LinearLayout hero = card();
+                  hero.setBackground(bg(Color.rgb(40,32,55), 24));
+                  hero.addView(text("Bugünün görevi", 13, Color.rgb(194,180,220), true));
+                  hero.addView(text(new SimpleDateFormat("EEEE, dd MMMM", new Locale("tr","TR")).format(new Date()), 22, Color.rgb(250,248,255), true));
+                  java.util.HashSet<String> serviceChains = new java.util.HashSet<>();
+                  for (String r : records) {
+                      String[] a = r.split("\\|", -1);
+                      if (a.length >= 1 && !a[0].trim().isEmpty()) serviceChains.add(a[0]);
+                  }
+                  hero.addView(text(serviceChains.size() + " servis kaydı telefonda güvenle saklanıyor", 14, Color.rgb(175,168,185), false));
+                  root.addView(hero);
+          
+                  Button n = action("＋  Yeni Görev / Tren Al", true);
+                  root.addView(n);
+                  n.setOnClickListener(v -> newRecord());
+          
+                  Button o = action("↻  Devam Eden Kayıtlar", false);
+                  root.addView(o);
+                  o.setOnClickListener(v -> ongoing());
+          
+                  Button m = action("▦  Aylık Kayıtlar", false);
+                  root.addView(m);
+                  m.setOnClickListener(v -> monthly());
+
+                  Button settings = action("⚙  Ayarlar", false);
+                  root.addView(settings);
+                  settings.setOnClickListener(v -> settings());
+          
+                  root.addView(section("Nasıl çalışır?"));
+                  LinearLayout help = card();
+                  help.addView(text("1  Görev alış / başlangıç saatini seç.", 14, Color.rgb(225,220,232), false));
+                  help.addView(text("2  Uygulamayı kapat; görev telefonda kalır.", 14, Color.rgb(225,220,232), false));
+                  help.addView(text("3  Bitiş saatini gir; eve giriş otomatik +30 dk.", 14, Color.rgb(225,220,232), false));
+                  root.addView(help);
+              }
+          
+              void newRecord() {
+                  currentPage = "newRecord";
+                  page("Yeni Görev", "Puantaj satırını oluşturmak için bilgileri gir.");
+          
+                  selectedStartDate = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(new Date());
+                  selectedStart = "";
+          
+                  LinearLayout c = card();
+                  c.addView(section("Görev bilgileri"));
+          
+                  Button dateButton = choice("Tarih  •  " + selectedStartDate);
+                  c.addView(dateButton);
+                  dateButton.setOnClickListener(v -> chooseDate(dateButton, true));
+          
+                  TextInputLayout person = field("Kiminle gittin?");
+                  c.addView(person);
+          
+                  TextInputLayout train = field("Tren no");
+                  c.addView(train);
+
+                  c.addView(section("Hazır tren seçenekleri"));
+                  LinearLayout trainButtons = new LinearLayout(this);
+                  trainButtons.setOrientation(LinearLayout.HORIZONTAL);
+
+                  Button outbound = choice("Gidiş trenleri");
+                  Button returnTrain = choice("Dönüş trenleri");
+                  outbound.setTextSize(13);
+                  returnTrain.setTextSize(13);
+                  LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(0, dp(44), 1f);
+                  half.setMargins(0, 0, dp(6), dp(8));
+                  outbound.setLayoutParams(half);
+                  LinearLayout.LayoutParams half2 = new LinearLayout.LayoutParams(0, dp(44), 1f);
+                  half2.setMargins(dp(6), 0, 0, dp(8));
+                  returnTrain.setLayoutParams(half2);
+                  trainButtons.addView(outbound);
+                  trainButtons.addView(returnTrain);
+                  c.addView(trainButtons);
+
+                  outbound.setOnClickListener(v -> chooseTrain(train, new String[]{
+                          "23201", "23202", "23205", "23207"
+                  }, "Gidiş trenini seç"));
+                  returnTrain.setOnClickListener(v -> chooseTrain(train, new String[]{
+                          "13102", "13104", "13106", "13108", "53503"
+                  }, "Dönüş trenini seç"));
+
+                  OwnerPicker ownerPicker = new OwnerPicker(c, "Teslim / tesellüm sahibi");
+
+                  c.addView(section("Özel Durumlar ve İzinler"));
+                  Button specialBtn = choice("★ İzin / İptal Ekle");
+                  specialBtn.setTextColor(Color.rgb(230,200,100));
+                  c.addView(specialBtn);
+                  specialBtn.setOnClickListener(v -> {
+                      String[] options = {"Hafta Tatili", "Boş Gün", "Yıllık İzin", "Tren İptali", "Destek 1", "Destek 2", "Destek 3"};
+                      new AlertDialog.Builder(this)
+                          .setTitle("Durum veya Görev Seç")
+                          .setItems(options, (dialog, which) -> {
+                              String sel = options[which];
+                              if (sel.equals("Tren İptali")) {
+                                  String[] allTrains = {
+                                      "23201", "23202", "23205", "23207",
+                                      "13102", "13104", "13106", "13108", "53503"
+                                  };
+                                  
+                                  LinearLayout cancelBox = new LinearLayout(this);
+                                  cancelBox.setOrientation(LinearLayout.VERTICAL);
+                                  cancelBox.setPadding(dp(16), dp(8), dp(16), 0);
+                                  
+                                  TextInputLayout manualInput = field("Veya manuel tren no gir");
+                                  Button trainListBtn = choice("Ortak Trenden Seç");
+                                  cancelBox.addView(trainListBtn);
+                                  cancelBox.addView(manualInput);
+
+                                  final String[] chosenCancelTrain = {""};
+
+                                  trainListBtn.setOnClickListener(tb -> {
+                                      new AlertDialog.Builder(this)
+                                          .setTitle("İptal Edilecek Treni Seç")
+                                          .setItems(allTrains, (d3, w3) -> {
+                                              chosenCancelTrain[0] = allTrains[w3];
+                                              trainListBtn.setText("Seçilen Tren: " + chosenCancelTrain[0]);
+                                              if (manualInput.getEditText() != null) {
+                                                  manualInput.getEditText().setText(chosenCancelTrain[0]);
+                                              }
+                                          })
+                                          .setNegativeButton("İptal", null)
+                                          .show();
+                                  });
+
+                                  new AlertDialog.Builder(this)
+                                      .setTitle("Tren İptali")
+                                      .setView(cancelBox)
+                                      .setPositiveButton("Ekle", (d2, w2) -> {
+                                          String tNo = value(manualInput);
+                                          if (!tNo.isEmpty() && train.getEditText() != null) {
+                                              train.getEditText().setText("İptal: " + tNo);
+                                          }
+                                      })
+                                      .setNegativeButton("Vazgeç", null)
+                                      .show();
+                              } else {
+                                  if (train.getEditText() != null) train.getEditText().setText(sel);
+                                  if (isSpecialLabel(sel)) {
+                                      if (person.getEditText() != null) person.getEditText().setText("-");
+                                      ownerPicker.setValue("-");
+                                  }
+                              }
+                          }).show();
+                  });
+
+                  c.addView(section("Başlangıç"));
+
+                  Button startButton = choice("Saat seç  •  Henüz seçilmedi");
+                  c.addView(startButton);
+                  startButton.setOnClickListener(v -> chooseTime(startButton, true));
+          
+                  root.addView(c);
+          
+                  Button save = action("Görevi Başlat ve Kaydet", true);
+                  root.addView(save);
+                  save.setOnClickListener(v -> {
+                      String currentTrainVal = value(train);
+                      boolean isSpecialCase = isSpecialLabel(currentTrainVal);
+
+                      if (isSpecialCase) {
+                          if (currentTrainVal.isEmpty()) {
+                              Toast.makeText(this, "Özel durum açıklaması gerekli.", Toast.LENGTH_LONG).show();
+                              return;
+                          }
+                          String chainId = UUID.randomUUID().toString();
+                          String record = chainId + "|" + selectedStartDate + "|" +
+                                  "-" + "|" + currentTrainVal + "|" +
+                                  "00:00" + "|" + "-" + "|DONE|" + selectedStartDate + "|" +
+                                  "00:00" + "|" + "-" + "|" + selectedStartDate + " 00:00";
+                          records.add(record);
+                          persist();
+                          Toast.makeText(this, "Özel durum kaydedildi.", Toast.LENGTH_SHORT).show();
+                          home();
+                          return;
+                      }
+
+                      if (value(person).isEmpty() || currentTrainVal.isEmpty() ||
+                              ownerPicker.value().isEmpty() || selectedStart.isEmpty()) {
+                          Toast.makeText(this, "Kiminle, tren no, teslim/tesellüm sahibi ve başlangıç saati gerekli.", Toast.LENGTH_LONG).show();
+                          return;
+                      }
+                      String chainId = UUID.randomUUID().toString();
+                      String record = chainId + "|" + selectedStartDate + "|" +
+                              value(person) + "|" + currentTrainVal + "|" + selectedStart + "|" +
+                              ownerPicker.value() + "|OPEN";
+                      records.add(record);
+                      rememberOwner(ownerPicker.value());
+                      persist();
+                      Toast.makeText(this, "Kayıt oluşturuldu. Uygulamayı kapatabilirsin.", Toast.LENGTH_SHORT).show();
+                      home();
+                  });
+          
+                  Button cancel = action("Vazgeç", false);
+                  root.addView(cancel);
+                  cancel.setOnClickListener(v -> home());
+              }
+          
+              void chooseDate(Button target, boolean start) {
+                  Calendar c = Calendar.getInstance();
+                  String base = start ? selectedStartDate : selectedFinishDate;
+                  if (base != null && !base.isEmpty()) {
+                      try {
+                          Date d = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).parse(base);
+                          if (d != null) c.setTime(d);
+                      } catch (Exception ignored) {}
+                  }
+          
+                  DatePickerDialog d = new DatePickerDialog(this,
+                      (view, year, month, day) -> {
+                          String v = String.format(Locale.getDefault(), "%02d.%02d.%04d", day, month + 1, year);
+                          if (start) {
+                              selectedStartDate = v;
+                              target.setText("Tarih  •  " + v);
+                          } else {
+                              selectedFinishDate = v;
+                              target.setText("Görev bitiş tarihi  •  " + v);
+                          }
+                      }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH));
+                  d.show();
+              }
+          
+              void chooseTime(Button target, boolean start) {
+                  Calendar c = Calendar.getInstance();
+                  TimePickerDialog d = new TimePickerDialog(this,
+                      (view, hour, minute) -> {
+                          String v = String.format(Locale.getDefault(), "%02d:%02d", hour, minute);
+                          if (start) {
+                              selectedStart = v;
+                              target.setText("Saat seçildi  •  " + v);
+                          } else {
+                              selectedFinish = v;
+                              target.setText("Görev bitiş / teslim  •  " + v);
+                          }
+                      }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true);
+                  d.show();
+              }
+          
+              boolean finishBeforeStart(String startDate, String startTime, String finishDate, String finishTime) {
+                  try {
+                      SimpleDateFormat f = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
+                      f.setLenient(false);
+                      Date start = f.parse(startDate + " " + startTime);
+                      Date finish = f.parse(finishDate + " " + finishTime);
+                      return start != null && finish != null && finish.before(start);
+                  } catch (Exception e) {
+                      return true;
+                  }
+              }
+
+              void showTimeOrderWarning() {
+                  new AlertDialog.Builder(this)
+                          .setTitle("Saat bilgisi hatalı")
+                          .setMessage("Görev bitiş / varış saati, görev başlangıç saatinden önce olamaz. Lütfen tarihi ve saati kontrol et.")
+                          .setPositiveButton("Tamam", null)
+                          .show();
+              }
+
+              void editCompletedRecord(String raw) {
+                  String[] a = raw.split("\\|", -1);
+                  if (a.length < 11 ||
+                          !("DONE".equals(a[6]) || "HOTEL".equals(a[6]) || "HOTEL_DONE".equals(a[6]))) {
+                      Toast.makeText(this, "Bu kayıt için düzenleme desteklenmiyor.", Toast.LENGTH_LONG).show();
+                      return;
+                  }
+
+                  final TextInputLayout person = field("Kiminle");
+                  final TextInputLayout train = field("Tren no");
+                  final TextInputLayout startOwner = field("Başlangıç teslim / tesellüm sahibi");
+                  final TextInputLayout finishOwner = field("Bitiş teslim / tesellüm sahibi");
+                  if (person.getEditText() != null) person.getEditText().setText(a[2]);
+                  if (train.getEditText() != null) train.getEditText().setText(a[3]);
+                  if (startOwner.getEditText() != null) startOwner.getEditText().setText(a[5]);
+                  if (finishOwner.getEditText() != null) finishOwner.getEditText().setText(a[9]);
+
+                  final String[] editStartDate = {a[1]};
+                  final String[] editStartTime = {a[4]};
+                  final String[] editFinishDate = {a[7]};
+                  final String[] editFinishTime = {a[8]};
+
+                  LinearLayout box = new LinearLayout(this);
+                  box.setOrientation(LinearLayout.VERTICAL);
+                  int pad = dp(18);
+                  box.setPadding(pad, dp(6), pad, 0);
+                  box.addView(person);
+                  box.addView(train);
+
+                  Button startDate = choice("Başlangıç tarihi  •  " + editStartDate[0]);
+                  Button startTime = choice("Başlangıç saati  •  " + editStartTime[0]);
+                  Button finishDate = choice("Bitiş tarihi  •  " + editFinishDate[0]);
+                  Button finishTime = choice("Bitiş saati  •  " + editFinishTime[0]);
+                  box.addView(startDate);
+                  box.addView(startTime);
+                  box.addView(startOwner);
+                  box.addView(finishDate);
+                  box.addView(finishTime);
+                  box.addView(finishOwner);
+
+                  startDate.setOnClickListener(v -> {
+                      Calendar c = Calendar.getInstance();
+                      try {
+                          Date d = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).parse(editStartDate[0]);
+                          if (d != null) c.setTime(d);
+                      } catch (Exception ignored) {}
+                      new DatePickerDialog(this, (view, year, month, day) -> {
+                          editStartDate[0] = String.format(Locale.getDefault(), "%02d.%02d.%04d", day, month + 1, year);
+                          startDate.setText("Başlangıç tarihi  •  " + editStartDate[0]);
+                      }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show();
+                  });
+                  startTime.setOnClickListener(v -> {
+                      Calendar c = Calendar.getInstance();
+                      try {
+                          String[] hm = editStartTime[0].split(":");
+                          c.set(Calendar.HOUR_OF_DAY, Integer.parseInt(hm[0]));
+                          c.set(Calendar.MINUTE, Integer.parseInt(hm[1]));
+                      } catch (Exception ignored) {}
+                      new TimePickerDialog(this, (view, hour, minute) -> {
+                          editStartTime[0] = String.format(Locale.getDefault(), "%02d:%02d", hour, minute);
+                          startTime.setText("Başlangıç saati  •  " + editStartTime[0]);
+                      }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show();
+                  });
+                  finishDate.setOnClickListener(v -> {
+                      Calendar c = Calendar.getInstance();
+                      try {
+                          Date d = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).parse(editFinishDate[0]);
+                          if (d != null) c.setTime(d);
+                      } catch (Exception ignored) {}
+                      new DatePickerDialog(this, (view, year, month, day) -> {
+                          editFinishDate[0] = String.format(Locale.getDefault(), "%02d.%02d.%04d", day, month + 1, year);
+                          finishDate.setText("Bitiş tarihi  •  " + editFinishDate[0]);
+                      }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show();
+                  });
+                  finishTime.setOnClickListener(v -> {
+                      Calendar c = Calendar.getInstance();
+                      try {
+                          String[] hm = editFinishTime[0].split(":");
+                          c.set(Calendar.HOUR_OF_DAY, Integer.parseInt(hm[0]));
+                          c.set(Calendar.MINUTE, Integer.parseInt(hm[1]));
+                      } catch (Exception ignored) {}
+                      new TimePickerDialog(this, (view, hour, minute) -> {
+                          editFinishTime[0] = String.format(Locale.getDefault(), "%02d:%02d", hour, minute);
+                          finishTime.setText("Bitiş saati  •  " + editFinishTime[0]);
+                      }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show();
+                  });
+
+                  AlertDialog dialog = new AlertDialog.Builder(this)
+                          .setTitle("DONE".equals(a[6]) ? "Tamamlanmış Kaydı Düzenle" : "Görev Başlangıç Kaydını Düzenle")
+                          .setView(box)
+                          .setNegativeButton("Vazgeç", null)
+                          .setPositiveButton("Kaydet", null)
+                          .create();
+                  dialog.setOnShowListener(v -> {
+                      Button saveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+                      saveButton.setOnClickListener(x -> {
+                          String pName = value(person);
+                          String tNo = value(train);
+                          String sOwner = value(startOwner);
+                          String fOwner = value(finishOwner);
+                          if (pName.isEmpty() || tNo.isEmpty() || sOwner.isEmpty() || fOwner.isEmpty()) {
+                              Toast.makeText(this, "Tüm kişi, tren ve teslim/tesellüm alanları doldurulmalı.", Toast.LENGTH_LONG).show();
+                              return;
+                          }
+                          if (finishBeforeStart(editStartDate[0], editStartTime[0], editFinishDate[0], editFinishTime[0])) {
+                              showTimeOrderWarning();
+                              return;
+                          }
+                          String arrival = addThirtyMinutes(editFinishDate[0], editFinishTime[0]);
+                          String updated = a[0] + "|" + editStartDate[0] + "|" + pName + "|" + tNo + "|" +
+                                  editStartTime[0] + "|" + sOwner + "|DONE|" + editFinishDate[0] + "|" +
+                                  editFinishTime[0] + "|" + fOwner + "|" + arrival;
+                          int index = records.indexOf(raw);
+                          if (index >= 0) {
+                              records.set(index, updated);
+                              persist();
+                              dialog.dismiss();
+                              Toast.makeText(this, "Kayıt güncellendi.", Toast.LENGTH_SHORT).show();
+                              monthly();
+                          }
+                      });
+                  });
+                  dialog.show();
+              }
+
+              void ongoing() {
+                  currentPage = "ongoing";
+                  page("Devam Eden", "Tamamlanmamış veya otelde devam eden görevler.");
+
+                  boolean found = false;
+                  for (String r : new ArrayList<>(records)) {
+                      String[] a = r.split("\\|", -1);
+                      if (a.length < 7) continue;
+
+                      String status = a[6];
+                      if (!status.equals("OPEN") && !status.equals("HOTEL")) continue;
+
+                      found = true;
+                      LinearLayout c = card();
+                      c.addView(text(formatTrainName(a[3]), 18, Color.rgb(245,243,250), true));
+                      c.addView(text(a[1] + "  •  " + a[2], 14, Color.rgb(175,168,185), false));
+                      c.addView(text("Başlangıç  " + a[4] + "  •  Tesellüm: " + a[5],
+                              14, Color.rgb(205,196,220), false));
+
+                      if (status.equals("HOTEL") && a.length >= 11) {
+                          String hotelOwner = a.length > 9 ? a[9] : "";
+                          String hotelDelivery = "Otel / devam  •  Teslim: " + a[7] + " " + a[8];
+                          if (!hotelOwner.isEmpty()) hotelDelivery += "  •  Tesellüm: " + hotelOwner;
+                          c.addView(text(hotelDelivery,
+                                  14, Color.rgb(210,190,225), false));
+                          c.addView(text("Otele varış +30 dk  •  " + a[10],
+                                  13, Color.rgb(175,168,185), false));
+                          Button b = action("Treni devam ettir  →", true);
+                          c.addView(b);
+                          root.addView(c);
+                          b.setOnClickListener(v -> continueFromHotel(r));
+                      } else {
+                          Button b = action("Görevi tamamla / otele geç  →", true);
+                          c.addView(b);
+                          root.addView(c);
+                          b.setOnClickListener(v -> complete(r));
+                      }
+                  }
+
+                  if (!found) {
+                      LinearLayout empty = card();
+                      empty.addView(text("Aktif görev yok", 18, Color.rgb(240,236,246), true));
+                      empty.addView(text("Yeni bir görev başlattığında burada görünecek.", 14, Color.rgb(170,165,180), false));
+                      root.addView(empty);
+                  }
+
+                  Button back = action("Ana Sayfa", false);
+                  root.addView(back);
+                  back.setOnClickListener(v -> home());
+              }
+
+              void complete(String r) {
+                  currentPage = "complete";
+                  String[] a = r.split("\\|", -1);
+                  page("Görevi Sonlandır", "Bitişte eve giriş otomatik +30 dakika. Otelde kalacaksan görevi devam ettirebilirsin.");
+
+                  LinearLayout summary = card();
+                  summary.addView(text(formatTrainName(a[3]), 20, Color.rgb(245,243,250), true));
+                  summary.addView(text(a[2], 14, Color.rgb(190,182,200), false));
+                  summary.addView(text("Başlangıç  " + a[4] + "  •  " + a[1], 14, Color.rgb(205,196,220), false));
+                  summary.addView(text("Başlangıç tesellüm sahibi  •  " + a[5], 13, Color.rgb(175,168,185), false));
+                  root.addView(summary);
+
+                  selectedFinish = "";
+                  selectedFinishDate = a[1];
+
+                  LinearLayout c = card();
+                  c.addView(section("Görev bitiş / teslim"));
+
+                  Button finishDate = choice("Görev bitiş tarihi  •  " + selectedFinishDate);
+                  c.addView(finishDate);
+                  finishDate.setOnClickListener(v -> chooseDate(finishDate, false));
+
+                  Button finishButton = choice("Bitiş saati seç  •  Henüz seçilmedi");
+                  c.addView(finishButton);
+                  finishButton.setOnClickListener(v -> chooseTime(finishButton, false));
+
+                  OwnerPicker ownerPicker = new OwnerPicker(c, "Teslim / tesellüm sahibi", true);
+
+                  LinearLayout auto = card();
+                  auto.setBackground(bg(Color.rgb(33,28,43), 18));
+                  auto.addView(text("EVE DÖNÜŞ", 11, Color.rgb(183,161,220), true));
+                  auto.addView(text("Görev bitişi + 30 dakika = eve giriş", 15, Color.rgb(235,230,242), true));
+                  auto.addView(text("Bu 30 dakika fiili çalışmaya dahildir.", 13, Color.rgb(175,168,185), false));
+                  c.addView(auto);
+                  root.addView(c);
+
+                  Button hotel = action("🏨  Otele Geç / Treni Devam Ettir", false);
+                  root.addView(hotel);
+                  hotel.setOnClickListener(v -> {
+                      if (selectedFinish.isEmpty()) {
+                          Toast.makeText(this, "Önce görev bitiş saatini seç.", Toast.LENGTH_LONG).show();
+                          return;
+                      }
+                      if (ownerPicker.value().isEmpty()) {
+                          Toast.makeText(this, "Teslim / tesellüm sahibini seç veya manuel gir.", Toast.LENGTH_LONG).show();
+                          return;
+                      }
+                      if (finishBeforeStart(a[1], a[4], selectedFinishDate, selectedFinish)) {
+                          showTimeOrderWarning();
+                          return;
+                      }
+
+                      String hotelArrival = addThirtyMinutes(selectedFinishDate, selectedFinish);
+                      String newRecord = r.replace("|OPEN", "|HOTEL|" + selectedFinishDate + "|" +
+                              selectedFinish + "|" + ownerPicker.value() + "|" + hotelArrival);
+                      records.set(records.indexOf(r), newRecord);
+                      rememberOwner(ownerPicker.value());
+                      persist();
+                      Toast.makeText(this, "Otel konaklaması kaydedildi • Otele varış " + hotelArrival,
+                              Toast.LENGTH_LONG).show();
+                      home();
+                  });
+
+                  Button save = action("✓  Görevi Tamamla ve Eve Dön", true);
+                  root.addView(save);
+                  save.setOnClickListener(v -> {
+                      if (selectedFinish.isEmpty()) {
+                          Toast.makeText(this, "Görev bitiş saatini seç.", Toast.LENGTH_LONG).show();
+                          return;
+                      }
+                      if (ownerPicker.value().isEmpty()) {
+                          Toast.makeText(this, "Teslim / tesellüm sahibini seç veya manuel gir.", Toast.LENGTH_LONG).show();
+                          return;
+                      }
+                      if (finishBeforeStart(a[1], a[4], selectedFinishDate, selectedFinish)) {
+                          showTimeOrderWarning();
+                          return;
+                      }
+
+                      String arrival = addThirtyMinutes(selectedFinishDate, selectedFinish);
+                      String newRecord = r.replace("|OPEN", "|DONE|" + selectedFinishDate + "|" +
+                              selectedFinish + "|" + ownerPicker.value() + "|" + arrival);
+                      records.set(records.indexOf(r), newRecord);
+                      rememberOwner(ownerPicker.value());
+                      persist();
+                      Toast.makeText(this, "Görev tamamlandı • Eve giriş " + arrival, Toast.LENGTH_LONG).show();
+                      home();
+                  });
+
+                  Button cancel = action("Vazgeç", false);
+                  root.addView(cancel);
+                  cancel.setOnClickListener(v -> ongoing());
+              }
+
+              void continueFromHotel(String r) {
+                  currentPage = "continue";
+                  String[] a = r.split("\\|", -1);
+
+                  page("Treni Devam Ettir", "Aynı görev zincirini sürdür. Kişi ve tren değişebileceği için ikisini de burada seçebilirsin.");
+
+                  LinearLayout summary = card();
+                  summary.addView(text("ÖNCEKİ SEGMENT", 11, Color.rgb(183,161,220), true));
+                  summary.addView(text(formatTrainName(a[3]), 20, Color.rgb(245,243,250), true));
+                  summary.addView(text(a[2] + "  •  Önceki görev", 14, Color.rgb(190,182,200), false));
+                  summary.addView(text("Otele teslim  •  " + a[7] + " " + a[8], 14, Color.rgb(205,196,220), false));
+                  summary.addView(text("Otele varış  •  " + a[10] + "  (+30 dk çalışma)", 13, Color.rgb(175,168,185), false));
+                  root.addView(summary);
+
+                  selectedStartDate = addDays(a[7], 1);
+                  selectedStart = "";
+
+                  LinearLayout c = card();
+                  c.addView(section("Yeni görev başlangıcı"));
+
+                  Button dateButton = choice("Başlangıç tarihi  •  " + selectedStartDate);
+                  c.addView(dateButton);
+                  dateButton.setOnClickListener(v -> chooseDate(dateButton, true));
+
+                  Button startButton = choice("Başlangıç saati seç  •  Henüz seçilmedi");
+                  c.addView(startButton);
+                  startButton.setOnClickListener(v -> chooseTime(startButton, true));
+
+                  TextInputLayout train = field("Tren no");
+                  TextInputEditText trainEdit = (TextInputEditText) train.getEditText();
+                  if (trainEdit != null) trainEdit.setText(a[3]);
+                  c.addView(train);
+
+                  c.addView(section("Tren seçimi"));
+                  LinearLayout trainButtons = new LinearLayout(this);
+                  trainButtons.setOrientation(LinearLayout.HORIZONTAL);
+
+                  Button outbound = choice("Gidiş trenleri");
+                  Button returnTrain = choice("Dönüş trenleri");
+                  outbound.setTextSize(13);
+                  returnTrain.setTextSize(13);
+
+                  LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(0, dp(44), 1f);
+                  half.setMargins(0, 0, dp(6), dp(8));
+                  outbound.setLayoutParams(half);
+                  LinearLayout.LayoutParams half2 = new LinearLayout.LayoutParams(0, dp(44), 1f);
+                  half2.setMargins(dp(6), 0, 0, dp(8));
+                  returnTrain.setLayoutParams(half2);
+                  trainButtons.addView(outbound);
+                  trainButtons.addView(returnTrain);
+                  c.addView(trainButtons);
+
+                  outbound.setOnClickListener(v -> chooseTrain(train, new String[]{
+                          "23201", "23202", "23205", "23207"
+                  }, "Gidiş trenini seç"));
+                  returnTrain.setOnClickListener(v -> chooseTrain(train, new String[]{
+                          "13102", "13104", "13106", "13108", "53503"
+                  }, "Dönüş trenini seç"));
+
+                  c.addView(text("Manuel değiştirmek için Tren no alanını doğrudan düzenleyebilirsin.",
+                          12, Color.rgb(155,148,165), false));
+
+                  CheckBox samePerson = new CheckBox(this);
+                  samePerson.setText("Aynı kişiyle devam ediyorum  •  " + a[2]);
+                  samePerson.setTextSize(15);
+                  samePerson.setTextColor(Color.rgb(235,230,242));
+                  samePerson.setChecked(autoContinuePerson());
+                  samePerson.setButtonTintList(android.content.res.ColorStateList.valueOf(Color.rgb(169,139,212)));
+                  c.addView(samePerson);
+
+                  TextInputLayout person = field("Kiminle gittin?");
+                  c.addView(person);
+                  person.setVisibility(View.GONE);
+
+                  samePerson.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                      person.setVisibility(isChecked ? View.GONE : View.VISIBLE);
+                  });
+
+                  OwnerPicker ownerPicker = new OwnerPicker(c, "Teslim / tesellüm sahibi", false);
+
+                  root.addView(c);
+
+                  Button save = action("✓  Treni Devam Ettir", true);
+                  root.addView(save);
+                  save.setOnClickListener(v -> {
+                      String chosenPerson = samePerson.isChecked() ? a[2] : value(person);
+                      String chosenTrain = value(train);
+                      String chosenOwner = ownerPicker.value();
+
+                      if (selectedStart.isEmpty() || chosenPerson.isEmpty() || chosenTrain.isEmpty() || chosenOwner.isEmpty()) {
+                          Toast.makeText(this, "Başlangıç saati, tren no, kiminle gittiğin ve teslim/tesellüm sahibi gerekli.", Toast.LENGTH_LONG).show();
+                          return;
+                      }
+
+                      String chainId = a[0];
+                      String newRecord = chainId + "|" + selectedStartDate + "|" + chosenPerson + "|" + chosenTrain + "|" +
+                              selectedStart + "|" + chosenOwner + "|OPEN";
+
+                      int oldIndex = records.indexOf(r);
+                      String closedHotel = r.replace("|HOTEL|", "|HOTEL_DONE|");
+                      if (oldIndex >= 0) {
+                          records.set(oldIndex, closedHotel);
+                      }
+                      records.add(newRecord);
+                      rememberOwner(chosenOwner);
+                      persist();
+
+                      Toast.makeText(this, "Tren devam kaydı oluşturuldu. " + chosenTrain + " • " + chosenPerson,
+                              Toast.LENGTH_SHORT).show();
+                      home();
+                  });
+
+                  Button cancel = action("Vazgeç", false);
+                  root.addView(cancel);
+                  cancel.setOnClickListener(v -> ongoing());
+              }
+
+              void settings() {
+                  currentPage = "settings";
+                  page("Ayarlar", "Hazır kişi listesi ve otomatik seçim davranışını buradan yönet.");
+
+                  LinearLayout behavior = card();
+                  behavior.addView(section("Kişi seçimi"));
+
+                  Switch listSwitch = new Switch(this);
+                  listSwitch.setText("Hazır kişi listesini kullan");
+                  listSwitch.setTextSize(15);
+                  listSwitch.setTextColor(Color.rgb(235,230,242));
+                  listSwitch.setChecked(useOwnerList());
+                  behavior.addView(listSwitch);
+
+                  Switch sameSwitch = new Switch(this);
+                  sameSwitch.setText("Treni devam ettirirken aynı kişiyi otomatik seç");
+                  sameSwitch.setTextSize(15);
+                  sameSwitch.setTextColor(Color.rgb(235,230,242));
+                  sameSwitch.setChecked(autoContinuePerson());
+                  behavior.addView(sameSwitch);
+
+                  behavior.addView(text("Hazır liste açıkken teslim/tesellüm alanlarında isimler tek dokunuşla seçilir. Manuel farklı isim seçeneği her zaman kullanılabilir.",
+                          12, Color.rgb(155,148,165), false));
+                  root.addView(behavior);
+
+                  LinearLayout defaultCard = card();
+                  defaultCard.addView(section("Yeni görevde otomatik kişi"));
+                  ArrayList<String> people = ownerList();
+                  ArrayList<String> choices = new ArrayList<>();
+                  choices.add("Seçim yok");
+                  choices.addAll(people);
+                  Spinner defaultSpinner = new Spinner(this);
+                  ArrayAdapter<String> defaultAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, choices);
+                  defaultSpinner.setAdapter(defaultAdapter);
+                  String currentDefault = defaultOwner();
+                  int defaultIndex = currentDefault.isEmpty() ? 0 : Math.max(0, choices.indexOf(currentDefault));
+                  defaultSpinner.setSelection(defaultIndex);
+                  defaultCard.addView(defaultSpinner, new LinearLayout.LayoutParams(-1, dp(54)));
+                  root.addView(defaultCard);
+
+                  LinearLayout peopleCard = card();
+                  peopleCard.addView(section("Hazır isim listesi"));
+                  LinearLayout peopleContainer = new LinearLayout(this);
+                  peopleContainer.setOrientation(LinearLayout.VERTICAL);
+                  peopleCard.addView(peopleContainer);
+
+                  final Runnable[] renderPeople = new Runnable[1];
+                  renderPeople[0] = () -> {
+                      peopleContainer.removeAllViews();
+                      for (String person : ownerList()) {
+                          LinearLayout row = new LinearLayout(this);
+                          row.setGravity(Gravity.CENTER_VERTICAL);
+                          row.setPadding(0, dp(2), 0, dp(2));
+                          TextView name = text(person, 15, Color.rgb(235,230,242), true);
+                          name.setGravity(Gravity.CENTER_VERTICAL);
+                          row.addView(name, new LinearLayout.LayoutParams(0, dp(48), 1f));
+                          Button remove = new Button(this);
+                          remove.setText("Sil");
+                          remove.setTextSize(12);
+                          remove.setTextColor(Color.rgb(238,234,245));
+                          remove.setAllCaps(false);
+                          remove.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                          remove.setMinHeight(0);
+                          remove.setPadding(0, 0, 0, 0);
+                          GradientDrawable removeBg = bg(Color.rgb(45,41,52), 18);
+                          removeBg.setStroke(dp(1), Color.rgb(82,74,96));
+                          remove.setBackground(removeBg);
+                          remove.setOnClickListener(v -> new AlertDialog.Builder(this)
+                                  .setTitle("Kişiyi sil")
+                                  .setMessage(person + " hazır listesinden çıkarılsın mı?")
+                                  .setNegativeButton("Vazgeç", null)
+                                  .setPositiveButton("Sil", (d, which) -> {
+                                      ArrayList<String> updated = ownerList();
+                                      updated.remove(person);
+                                      if (updated.isEmpty()) {
+                                          Toast.makeText(this, "En az bir hazır isim kalmalı.", Toast.LENGTH_SHORT).show();
+                                          return;
+                                      }
+                                      saveOwnerList(updated);
+                                      if (person.equals(prefs.getString("default_owner", ""))) {
+                                          prefs.edit().remove("default_owner").apply();
+                                      }
+                                      renderPeople[0].run();
+                                  }).show());
+                          row.addView(remove, new LinearLayout.LayoutParams(dp(82), dp(48)));
+                          peopleContainer.addView(row);
+                      }
+                  };
+                  renderPeople[0].run();
+
+                  Button add = action("＋  Yeni isim ekle", true);
+                  peopleCard.addView(add);
+                  add.setOnClickListener(v -> {
+                      TextInputLayout input = field("Yeni isim");
+                      AlertDialog dialog = new AlertDialog.Builder(this)
+                              .setTitle("Hazır listeye kişi ekle")
+                              .setView(input)
+                              .setNegativeButton("Vazgeç", null)
+                              .setPositiveButton("Ekle", null)
+                              .create();
+                      dialog.setOnShowListener(x -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(y -> {
+                          String name = value(input);
+                          if (name.isEmpty()) {
+                              input.setError("İsim gir");
+                              return;
+                          }
+                          ArrayList<String> updated = ownerList();
+                          if (updated.contains(name)) {
+                              input.setError("Bu isim zaten listede");
+                              return;
+                          }
+                          updated.add(name);
+                          saveOwnerList(updated);
+                          dialog.dismiss();
+                          renderPeople[0].run();
+                          Toast.makeText(this, name + " eklendi.", Toast.LENGTH_SHORT).show();
+                      }));
+                      dialog.show();
+                  });
+                  root.addView(peopleCard);
+
+                  listSwitch.setOnCheckedChangeListener((buttonView, checked) -> prefs.edit().putBoolean("use_owner_list", checked).apply());
+                  sameSwitch.setOnCheckedChangeListener((buttonView, checked) -> prefs.edit().putBoolean("auto_continue_person", checked).apply());
+                  defaultSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                      @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                          String chosen = choices.get(position);
+                          prefs.edit().putString("default_owner", "Seçim yok".equals(chosen) ? "" : chosen).apply();
+                      }
+                      @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+                  });
+
+                  Button back = action("Ana Sayfa", false);
+                  root.addView(back);
+                  back.setOnClickListener(v -> home());
+              }
+
+              void chooseTrain(TextInputLayout target, String[] trains, String titleText) {
+                  String current = value(target);
+                  int checked = -1;
+                  for (int i = 0; i < trains.length; i++) {
+                      if (trains[i].equals(current)) {
+                          checked = i;
+                          break;
+                      }
+                  }
+
+                  AlertDialog dialog = new AlertDialog.Builder(this)
+                          .setTitle(titleText)
+                          .setSingleChoiceItems(trains, checked, (d, which) -> {
+                              EditText e = target.getEditText();
+                              if (e != null) e.setText(trains[which]);
+                              d.dismiss();
+                          })
+                          .setNegativeButton("İptal", null)
+                          .create();
+                  dialog.show();
+              }
+
+              int compareDates(String first, String second) {
+                  try {
+                      SimpleDateFormat f = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault());
+                      f.setLenient(false);
+                      Date a = f.parse(first);
+                      Date b = f.parse(second);
+                      if (a == null || b == null) return first.compareTo(second);
+                      return a.compareTo(b);
+                  } catch (Exception ignored) {
+                      return first.compareTo(second);
+                  }
+              }
+
+              String addThirtyMinutes(String date, String time) {
+                  try {
+                      SimpleDateFormat f = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
+                      Date d = f.parse(date + " " + time);
+                      if (d != null) {
+                          d = new Date(d.getTime() + 30L * 60L * 1000L);
+                          return new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()).format(d);
+                      }
+                  } catch (Exception ignored) {}
+                  return date + " " + time;
+              }
+
+              String addDays(String date, int days) {
+                  try {
+                      SimpleDateFormat f = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault());
+                      Date d = f.parse(date);
+                      if (d != null) {
+                          Calendar c = Calendar.getInstance();
+                          c.setTime(d);
+                          c.add(Calendar.DAY_OF_MONTH, days);
+                          return f.format(c.getTime());
+                      }
+                  } catch (Exception ignored) {}
+                  return date;
+              }
+
+              void addHotelDays(LinearLayout target, String chainId, String fromDate, String toDate) {
+                  try {
+                      SimpleDateFormat f = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault());
+                      Calendar c = Calendar.getInstance();
+                      Date from = f.parse(fromDate);
+                      Date to = f.parse(toDate);
+                      if (from == null || to == null) return;
+                      c.setTime(from);
+                      c.add(Calendar.DAY_OF_MONTH, 1);
+
+                      while (c.getTime().before(to)) {
+                          String d = f.format(c.getTime());
+                          LinearLayout hotel = card();
+                          hotel.addView(text(d + "  •  OTEL / BEKLEME", 15,
+                                  Color.rgb(230,220,238), true));
+                          hotel.addView(text("Aynı tren görevi devam ediyor.", 13,
+                                  Color.rgb(175,168,185), false));
+                          target.addView(hotel);
+                          c.add(Calendar.DAY_OF_MONTH, 1);
+                      }
+                  } catch (Exception ignored) {}
+              }
+               
+              void monthly() {
+                  currentPage = "monthly";
+                  page("Aylık Kayıtlar", "Yıl ve ay seçerek kayıtlarını düzenli şekilde görüntüle.");
+
+                  if (records.isEmpty()) {
+                      LinearLayout empty = card();
+                      empty.addView(text("Henüz kayıt yok.", 18, Color.rgb(240,236,246), true));
+                      root.addView(empty);
+
+                      Button back = action("Ana Sayfa", false);
+                      root.addView(back);
+                      back.setOnClickListener(v -> home());
+                      return;
+                  }
+
+                  LinkedHashMap<String, ArrayList<String>> chains = new LinkedHashMap<>();
+                  for (String r : records) {
+                      String[] a = r.split("\\|", -1);
+                      if (a.length < 7) continue;
+
+                      String chainId = a[0];
+                      ArrayList<String> list = chains.get(chainId);
+                      if (list == null) {
+                          list = new ArrayList<>();
+                          chains.put(chainId, list);
+                      }
+                      list.add(r);
+                  }
+
+                  ArrayList<ArrayList<String>> sortedChains = new ArrayList<>(chains.values());
+
+                  Collections.sort(sortedChains, (x, y) -> {
+                      boolean xOpen = false;
+                      if (!x.isEmpty()) {
+                          String status = x.get(x.size() - 1).split("\\|", -1)[6];
+                          xOpen = status.equals("OPEN") || status.equals("HOTEL");
+                      }
+                      boolean yOpen = false;
+                      if (!y.isEmpty()) {
+                          String status = y.get(y.size() - 1).split("\\|", -1)[6];
+                          yOpen = status.equals("OPEN") || status.equals("HOTEL");
+                      }
+
+                      if (xOpen && !yOpen) return -1;
+                      if (!xOpen && yOpen) return 1;
+
+                      String[] a = x.get(0).split("\\|", -1);
+                      String[] b = y.get(0).split("\\|", -1);
+                      int dateCompare = compareDates(a[1], b[1]);
+                      if (dateCompare != 0) return dateCompare;
+                      return a[4].compareTo(b[4]);
+                  });
+
+                  TreeSet<Integer> yearSet = new TreeSet<>();
+                  for (int y = 2025; y <= 2100; y++) {
+                      yearSet.add(y);
+                  }
+
+                  if (yearSet.isEmpty()) {
+                      LinearLayout empty = card();
+                      empty.addView(text("Tarih bilgisi okunamadı.", 18, Color.rgb(240,236,246), true));
+                      root.addView(empty);
+                  } else {
+                      Integer[] years = yearSet.toArray(new Integer[0]);
+                      String[] yearLabels = new String[years.length];
+                      for (int i = 0; i < years.length; i++) {
+                          yearLabels[i] = String.valueOf(years[i]);
+                      }
+
+                      String[] monthLabels = new String[]{
+                              "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+                              "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
+                      };
+
+                      int defaultYearIndex = years.length - 1;
+                      int defaultMonthIndex = 0;
+                      int latestYear = years[defaultYearIndex];
+                      Date latestDate = null;
+                      SimpleDateFormat filterDate = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault());
+                      filterDate.setLenient(false);
+
+                      for (ArrayList<String> chain : sortedChains) {
+                          for (String r : chain) {
+                              String[] a = r.split("\\|", -1);
+                              if (a.length < 2) continue;
+                              try {
+                                  Date d = filterDate.parse(a[1]);
+                                  if (d != null && (latestDate == null || d.after(latestDate))) {
+                                      latestDate = d;
+                                  }
+                              } catch (Exception ignored) {}
+                          }
+                      }
+
+                      if (latestDate != null) {
+                          Calendar latestCal = Calendar.getInstance();
+                          latestCal.setTime(latestDate);
+                          latestYear = latestCal.get(Calendar.YEAR);
+                          defaultMonthIndex = latestCal.get(Calendar.MONTH);
+                          for (int i = 0; i < years.length; i++) {
+                              if (years[i] == latestYear) {
+                                  defaultYearIndex = i;
+                                  break;
+                              }
+                          }
+                      }
+
+                      LinearLayout filterCard = card();
+                      filterCard.setBackground(bg(Color.rgb(40,32,55), 22));
+                      TextView periodSection = section("Kayıt dönemi");
+                      periodSection.setPadding(dp(4), dp(6), dp(4), dp(4));
+                      filterCard.addView(periodSection);
+
+                      TextView yearLabel = text("YIL", 11, Color.rgb(183,161,220), true);
+                      yearLabel.setPadding(dp(2), 0, 0, dp(2));
+                      filterCard.addView(yearLabel);
+
+                      Spinner yearSpinner = new Spinner(this);
+                      ArrayAdapter<String> yearAdapter = new ArrayAdapter<String>(
+                              this,
+                              android.R.layout.simple_spinner_dropdown_item,
+                              yearLabels
+                      );
+                      yearSpinner.setAdapter(yearAdapter);
+                      yearSpinner.setSelection(defaultYearIndex);
+                      filterCard.addView(yearSpinner, new LinearLayout.LayoutParams(-1, dp(42)));
+
+                      TextView monthLabel = text("AY", 11, Color.rgb(183,161,220), true);
+                      monthLabel.setPadding(dp(2), dp(4), 0, dp(2));
+                      filterCard.addView(monthLabel);
+
+                      Spinner monthSpinner = new Spinner(this);
+                      ArrayAdapter<String> monthAdapter = new ArrayAdapter<String>(
+                              this,
+                              android.R.layout.simple_spinner_dropdown_item,
+                              monthLabels
+                      );
+                      monthSpinner.setAdapter(monthAdapter);
+                      monthSpinner.setSelection(defaultMonthIndex);
+                      filterCard.addView(monthSpinner, new LinearLayout.LayoutParams(-1, dp(42)));
+
+                      root.addView(filterCard);
+
+                      LinearLayout resultContainer = new LinearLayout(this);
+                      resultContainer.setOrientation(LinearLayout.VERTICAL);
+                      root.addView(resultContainer);
+
+                      Runnable render = () -> {
+                          resultContainer.removeAllViews();
+
+                          int selectedYear = years[Math.max(0, yearSpinner.getSelectedItemPosition())];
+                          int selectedMonth = Math.max(0, monthSpinner.getSelectedItemPosition());
+
+                          int visibleChains = 0;
+
+                          for (ArrayList<String> chain : sortedChains) {
+                              boolean belongsToMonth = false;
+                              for (String r : chain) {
+                                  String[] a = r.split("\\|", -1);
+                                  if (a.length < 2) continue;
+                                  try {
+                                      String dateForFilter = ("HOTEL".equals(a.length > 6 ? a[6] : "") ||
+                                              "HOTEL_DONE".equals(a.length > 6 ? a[6] : ""))
+                                              && a.length >= 8 ? a[7] : a[1];
+                                      Date d = filterDate.parse(dateForFilter);
+                                      if (d != null) {
+                                          Calendar cal = Calendar.getInstance();
+                                          cal.setTime(d);
+                                          if (cal.get(Calendar.YEAR) == selectedYear &&
+                                                  cal.get(Calendar.MONTH) == selectedMonth) {
+                                              belongsToMonth = true;
+                                              break;
+                                          }
+                                      }
+                                  } catch (Exception ignored) {}
+                              }
+
+                              if (!belongsToMonth) continue;
+                              visibleChains++;
+
+                              // Özel gün / izin / destek kayıtları (Kiminle="-" ve Tesellüm="-")
+                              // tek satırlık kayıtlardır. Bunları normal servis kartı gibi değil,
+                              // "TARİH • DURUM" şeklinde sade göster.
+                              if (chain.size() == 1) {
+                                  String[] specialCheck = chain.get(0).split("\\|", -1);
+                                  if (specialCheck.length >= 7 &&
+                                          specialCheck[2].equals("-") && specialCheck[5].equals("-")) {
+                                      LinearLayout specialCard = card();
+                                      TextView specialText = text(
+                                              specialCheck[1] + "  •  " + specialCheck[3],
+                                              16, Color.rgb(245,243,250), true);
+                                      final String deleteChainId = specialCheck[0];
+                                      specialText.setOnLongClickListener(v -> {
+                                          new AlertDialog.Builder(this)
+                                                  .setTitle("Kaydı sil")
+                                                  .setMessage("Bu özel gün kaydını silmek istiyor musun?")
+                                                  .setNegativeButton("HAYIR", null)
+                                                  .setPositiveButton("SİL", (dialog, which) -> {
+                                                      for (int i = records.size() - 1; i >= 0; i--) {
+                                                          String[] rec = records.get(i).split("\\|", -1);
+                                                          if (rec.length > 0 && deleteChainId.equals(rec[0])) {
+                                                              records.remove(i);
+                                                          }
+                                                      }
+                                                      persist();
+                                                      monthly();
+                                                  })
+                                                  .show();
+                                          return true;
+                                      });
+                                      specialCard.addView(specialText);
+                                      resultContainer.addView(specialCard);
+                                      continue;
+                                  }
+                              }
+
+                              Collections.sort(chain, (x, y) -> {
+                                  String[] a = x.split("\\|", -1);
+                                  String[] b = y.split("\\|", -1);
+
+                                  int dateCompare = compareDates(a[1], b[1]);
+                                  if (dateCompare != 0) return dateCompare;
+
+                                  return a[4].compareTo(b[4]);
+                              });
+
+                              String startDate = "";
+                              String endDate = "";
+                              boolean completed = false;
+                              String firstRecord = "";
+
+                              for (String segment : chain) {
+                                  String[] a = segment.split("\\|", -1);
+                                  if (a.length < 2) continue;
+                                  if (firstRecord.isEmpty() || compareDates(a[1], firstRecord.split("\\|", -1)[1]) < 0) {
+                                      firstRecord = segment;
+                                  }
+                              }
+                              if (!firstRecord.isEmpty()) {
+                                  String[] first = firstRecord.split("\\|", -1);
+                                  startDate = first[1];
+                              }
+
+                              for (String segment : chain) {
+                                  String[] a = segment.split("\\|", -1);
+                                  if (a.length < 7) continue;
+                                  String status = a[6];
+                                  if ("HOTEL".equals(status) || "HOTEL_DONE".equals(status)) continue;
+
+                                  if (endDate.isEmpty() || compareDates(a[1], endDate) > 0) {
+                                      endDate = a[1];
+                                  }
+                                  if ("DONE".equals(status)) completed = true;
+                              }
+
+                              if (endDate.isEmpty()) endDate = startDate;
+
+                              LinearLayout chainCard = card();
+
+                              String chainTitle;
+                              if (startDate.equals(endDate)) {
+                                  chainTitle = startDate + "  •  SERVİS";
+                              } else {
+                                  chainTitle = startDate + "  →  " + endDate + "  •  SERVİS";
+                              }
+                              TextView serviceTitle = text(chainTitle, 18,
+                                      Color.rgb(245,243,250), true);
+                              final String deleteChainId = chain.get(0).split("\\|", -1)[0];
+
+                              serviceTitle.setOnLongClickListener(v -> {
+                                  new AlertDialog.Builder(this)
+                                          .setTitle("Kaydı sil")
+                                          .setMessage("Gerçekten bu servisin tamamını silmek istiyor musun?")
+                                          .setNegativeButton("HAYIR", null)
+                                          .setPositiveButton("SİL", (dialog, which) -> {
+                                              for (int i = records.size() - 1; i >= 0; i--) {
+                                                  String[] rec = records.get(i).split("\\|", -1);
+                                                  if (rec.length > 0 && deleteChainId.equals(rec[0])) {
+                                                      records.remove(i);
+                                                  }
+                                              }
+                                              persist();
+                                              monthly();
+                                          })
+                                          .show();
+                                  return true;
+                              });
+                              chainCard.addView(serviceTitle);
+
+                              chainCard.addView(text(
+                                      completed ? "SERVİS TAMAMLANDI" : "SERVİS DEVAM EDİYOR",
+                                      12,
+                                      completed ? Color.rgb(180,205,190) : Color.rgb(235,190,90),
+                                      true));
+
+                              for (String r : chain) {
+                                  String[] a = r.split("\\|", -1);
+                                  if (a.length < 7) continue;
+
+                                  String status = a[6];
+
+                                  if ("HOTEL".equals(status) || "HOTEL_DONE".equals(status)) {
+                                      if (a.length >= 11) {
+                                          LinearLayout hotel = card();
+                                          hotel.setBackground(bg(Color.rgb(33,28,43), 18));
+
+                                          hotel.addView(text(a[1] + "  •  " + formatTrainName(a[3]), 16,
+                                                  Color.rgb(245,243,250), true));
+                                          hotel.addView(text("Kiminle  •  " + a[2], 13,
+                                                  Color.rgb(205,196,220), false));
+                                          hotel.addView(text("Başlangıç  •  " + a[4], 13,
+                                                  Color.rgb(205,196,220), false));
+                                          hotel.addView(text("Başlangıç tesellüm  •  " + a[5], 13,
+                                                  Color.rgb(170,165,180), false));
+                                          hotel.addView(text("OTEL / BEKLEME", 12,
+                                                  Color.rgb(183,161,220), true));
+                                          hotel.addView(text("Teslim  •  " + a[8] +
+                                                  "  •  Tesellüm: " + a[9], 13,
+                                                  Color.rgb(205,196,220), false));
+                                          hotel.addView(text("Otele varış  •  " + a[10] +
+                                                  "  (+30 dk çalışma)", 13,
+                                                  Color.rgb(180,205,190), false));
+
+                                          if ("HOTEL_DONE".equals(status)) {
+                                              hotel.addView(text("Sonraki gün trene devam edildi.",
+                                                      13, Color.rgb(190,175,220), false));
+                                          } else {
+                                              hotel.addView(text("Tren devamı bekleniyor.",
+                                                      13, Color.rgb(175,168,185), false));
+                                          }
+
+                                          final String editableHotelRecord = r;
+                                          hotel.setOnLongClickListener(v -> {
+                                              String title = "HOTEL_DONE".equals(status)
+                                                      ? "Otel / bekleme kaydı"
+                                                      : "Görev başlangıç kaydı";
+                                              new AlertDialog.Builder(this)
+                                                      .setTitle(title)
+                                                      .setMessage("Bu kaydı düzenlemek ister misin?")
+                                                      .setNegativeButton("Vazgeç", null)
+                                                      .setPositiveButton("Düzenle", (d, which) -> editCompletedRecord(editableHotelRecord))
+                                                      .show();
+                                              return true;
+                                          });
+
+                                          chainCard.addView(hotel);
+
+                                          String nextDate = "";
+                                          for (String nextSegment : chain) {
+                                              String[] n = nextSegment.split("\\|", -1);
+                                              if (n.length >= 7 &&
+                                                      !"HOTEL".equals(n[6]) &&
+                                                      !"HOTEL_DONE".equals(n[6]) &&
+                                                      compareDates(n[1], a[7]) > 0) {
+                                                  if (nextDate.isEmpty() ||
+                                                          compareDates(n[1], nextDate) < 0) {
+                                                      nextDate = n[1];
+                                                  }
+                                              }
+                                          }
+
+                                          if (!nextDate.isEmpty()) {
+                                              try {
+                                                  Date from = filterDate.parse(a[7]);
+                                                  Date to = filterDate.parse(nextDate);
+
+                                                  if (from != null && to != null) {
+                                                      Calendar c = Calendar.getInstance();
+                                                      c.setTime(from);
+                                                      c.add(Calendar.DAY_OF_MONTH, 1);
+
+                                                      while (c.getTime().before(to)) {
+                                                          String d = filterDate.format(c.getTime());
+
+                                                          LinearLayout wait = card();
+                                                          wait.setBackground(bg(Color.rgb(27,24,32), 18));
+                                                          wait.addView(text(d + "  •  OTEL / BEKLEME", 14,
+                                                                  Color.rgb(210,200,222), true));
+                                                          wait.addView(text("Çalışma kaydı yok • Otel konaklaması",
+                                                                  13, Color.rgb(165,158,175), false));
+                                                          chainCard.addView(wait);
+
+                                                          c.add(Calendar.DAY_OF_MONTH, 1);
+                                                      }
+                                                  }
+                                              } catch (Exception ignored) {}
+                                          }
+                                      }
+
+                                      continue;
+                                  }
+
+                                  LinearLayout segmentCard = card();
+                                  segmentCard.setBackground(bg(Color.rgb(35,31,42), 18));
+
+                                  segmentCard.addView(text(
+                                          a[1] + "  •  " + formatTrainName(a[3]),
+                                          16, Color.rgb(245,243,250), true));
+
+                                  segmentCard.addView(text(
+                                          "Kiminle  •  " + a[2],
+                                          14, Color.rgb(205,196,220), false));
+
+                                  segmentCard.addView(text(
+                                          "Başlangıç  •  " + a[4],
+                                          13, Color.rgb(185,178,195), false));
+
+                                  segmentCard.addView(text(
+                                          "Başlangıç tesellüm  •  " + a[5],
+                                          13, Color.rgb(170,165,180), false));
+
+                                  if ("DONE".equals(status) && a.length >= 11) {
+                                      segmentCard.addView(text("TAMAMLANDI", 12,
+                                              Color.rgb(180,205,190), true));
+
+                                      segmentCard.addView(text(
+                                              "Bitiş  •  " + a[7] + " " + a[8],
+                                              13, Color.rgb(205,196,220), false));
+
+                                      segmentCard.addView(text(
+                                              "Tesellüm  •  " + a[9],
+                                              13, Color.rgb(170,165,180), false));
+
+                                      segmentCard.addView(text(
+                                              "Eve giriş  •  " + a[10] + "  (+30 dk)",
+                                              13, Color.rgb(180,205,190), true));
+                                  } else if ("OPEN".equals(status)) {
+                                      segmentCard.addView(text("DEVAM EDİYOR", 12,
+                                              Color.rgb(235,190,90), true));
+                                  }
+
+                                  if ("DONE".equals(status)) {
+                                      final String editableRecord = r;
+                                      segmentCard.setOnLongClickListener(v -> {
+                                          new AlertDialog.Builder(this)
+                                                  .setTitle("Tamamlanmış kayıt")
+                                                  .setMessage("Bu kaydı düzenlemek ister misin?")
+                                                  .setNegativeButton("Vazgeç", null)
+                                                  .setPositiveButton("Düzenle", (d, which) -> editCompletedRecord(editableRecord))
+                                                  .show();
+                                          return true;
+                                      });
+                                  }
+
+                                  chainCard.addView(segmentCard);
+                              }
+
+                              resultContainer.addView(chainCard);
+                          }
+
+                          if (visibleChains == 0) {
+                              LinearLayout emptyMonth = card();
+                              emptyMonth.addView(text(
+                                      monthLabels[selectedMonth] + " " + selectedYear + " içinde kayıt bulunmuyor.",
+                                      17, Color.rgb(240,236,246), true));
+                              emptyMonth.addView(text(
+                                      "Başka bir ay veya yıl seçerek kayıtlarını görüntüleyebilirsin.",
+                                      13, Color.rgb(170,165,180), false));
+                              resultContainer.addView(emptyMonth);
+                          }
+                      };
+
+                      yearSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                          @Override
+                          public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                              render.run();
+                          }
+
+                          @Override
+                          public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+                      });
+
+                      monthSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                          @Override
+                          public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                              render.run();
+                          }
+
+                          @Override
+                          public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+                      });
+
+                      render.run();
+                  }
+
+                  Button back = action("Ana Sayfa", false);
+                  root.addView(back);
+                  back.setOnClickListener(v -> home());
+              }
+
+              void load() {
+                  String all = prefs.getString("records", "");
+                  if (all.isEmpty()) return;
+
+                  for (String raw : all.split("\\n", -1)) {
+                      if (raw.trim().isEmpty()) continue;
+                      String[] a = raw.split("\\|", -1);
+
+                      if (a.length == 6 && a[5].equals("OPEN")) {
+                          raw = a[0] + "|" + a[1] + "|" + a[2] + "|" + a[3] + "|" +
+                                  a[4] + "|Belirtilmedi|OPEN";
+                      }
+                      else if (a.length == 10 && a[5].equals("DONE")) {
+                          raw = a[0] + "|" + a[1] + "|" + a[2] + "|" + a[3] + "|" +
+                                  a[4] + "|Belirtilmedi|DONE|" + a[6] + "|" + a[7] + "|" +
+                                  a[8] + "|" + a[9];
+                      }
+
+                      records.add(raw);
+                  }
+              }
+          
+              void persist() {
+                  StringBuilder out = new StringBuilder();
+                  for (String r : records) {
+                      if (out.length() > 0) out.append("\n");
+                      out.append(r);
+                  }
+                  prefs.edit().putString("records", out.toString()).apply();
+              }
+          }
+          EOF
+
+          cd puantaj
+          gradle assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.5.30.apk"
+          test -s "$GITHUB_WORKSPACE/4011-Model-v0.5.30.apk"
+
+      - name: APK'yı yükle
+        uses: actions/upload-artifact@v6
+        with:
+          name: 4011-Model-v0.5.30
+          path: ${{ github.workspace }}/4011-Model-v0.5.30.apk
