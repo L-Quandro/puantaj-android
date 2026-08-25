@@ -1006,7 +1006,7 @@ jobs:
 
                   OwnerPicker ownerPicker = new OwnerPicker(c, "Teslim / tesellüm sahibi", true);
 
-                  c.addView(section("Konaklama"));
+                  c.addView(section("Konaklama  (Sadece görev bitişinde giriniz)"));
                   final int[] hotelNightsChoice = {0};
                   Button hotelNightsButton = choice("Otelde konaklanan gece sayısı  •  0 gece");
                   c.addView(hotelNightsButton);
