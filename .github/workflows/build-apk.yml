@@ -1,4 +1,4 @@
-name: 4011 Model APK v0.7.0
+name: 4011 Model APK v0.7.1
 
 on:
   push:
@@ -67,8 +67,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 36
-                  versionName '0.7.0'
+                  versionCode 37
+                  versionName '0.7.1'
               }
           }
           dependencies {
@@ -798,9 +798,9 @@ jobs:
                   selectedStartDate = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(new Date());
                   selectedStart = "";
 
-                  final String[] wizPerson = {""};
+                  final String[] wizPerson = {defaultOwner()};
                   final String[] wizTrain = {""};
-                  final String[] wizOwner = {defaultOwner()};
+                  final String[] wizOwner = {""};
                   final int[] wizStep = {0};
                   final int totalSteps = 5;
                   final Runnable[] render = new Runnable[1];
@@ -1577,7 +1577,10 @@ jobs:
                   root.addView(behavior);
 
                   LinearLayout defaultCard = card();
-                  defaultCard.addView(section("Yeni görevde otomatik kişi"));
+                  defaultCard.addView(section("Yeni görevde kiminle gittiğini otomatik seç"));
+                  defaultCard.addView(text(
+                          "\"Kiminle gittin?\" adımında bu kişi baştan seçili gelir. Teslim / tesellüm sahibini etkilemez.",
+                          12, TEXT_MUTED, false));
                   ArrayList<String> people = ownerList();
                   ArrayList<String> choices = new ArrayList<>();
                   choices.add("Seçim yok");
@@ -1588,7 +1591,9 @@ jobs:
                   String currentDefault = defaultOwner();
                   int defaultIndex = currentDefault.isEmpty() ? 0 : Math.max(0, choices.indexOf(currentDefault));
                   defaultSpinner.setSelection(defaultIndex);
-                  defaultCard.addView(defaultSpinner, new LinearLayout.LayoutParams(-1, dp(54)));
+                  LinearLayout.LayoutParams defaultSpinnerParams = new LinearLayout.LayoutParams(-1, dp(54));
+                  defaultSpinnerParams.setMargins(0, dp(10), 0, 0);
+                  defaultCard.addView(defaultSpinner, defaultSpinnerParams);
                   root.addView(defaultCard);
 
                   LinearLayout peopleCard = card();
@@ -2400,11 +2405,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.7.0.apk"
-          test -s "$GITHUB_WORKSPACE/4011-Model-v0.7.0.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.7.1.apk"
+          test -s "$GITHUB_WORKSPACE/4011-Model-v0.7.1.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v6
         with:
-          name: 4011-Model-v0.7.0
-          path: ${{ github.workspace }}/4011-Model-v0.7.0.apk
+          name: 4011-Model-v0.7.1
+          path: ${{ github.workspace }}/4011-Model-v0.7.1.apk
