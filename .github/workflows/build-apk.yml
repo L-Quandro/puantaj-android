@@ -1,4 +1,4 @@
-name: 4011 Model APK v0.7.3
+name: 4011 Model APK v0.7.4
 
 on:
   push:
@@ -67,8 +67,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 39
-                  versionName '0.7.3'
+                  versionCode 40
+                  versionName '0.7.4'
               }
           }
           dependencies {
@@ -1049,7 +1049,7 @@ jobs:
               // özel gün / izin / destek iptali kısayolu. Seçilince tek satırlık
               // kaydı doğrudan oluşturup ana sayfaya döner.
               void showSpecialCaseDialog() {
-                  String[] options = {"Hafta Tatili", "Boş Gün", "Yıllık İzin", "Tren İptali", "İptal Destek 1", "İptal Destek 2", "İptal Destek 3"};
+                  String[] options = {"Hafta Tatili", "Boş Gün", "Yıllık İzin", "Tren İptali", "İptal Destek 1", "İptal Destek 2", "İptal Destek 3", "İptal Des-2/3"};
                   new AlertDialog.Builder(this)
                       .setTitle("Durum veya Görev Seç")
                       .setItems(options, (dialog, which) -> {
@@ -2609,11 +2609,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.7.3.apk"
-          test -s "$GITHUB_WORKSPACE/4011-Model-v0.7.3.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.7.4.apk"
+          test -s "$GITHUB_WORKSPACE/4011-Model-v0.7.4.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v6
         with:
-          name: 4011-Model-v0.7.3
-          path: ${{ github.workspace }}/4011-Model-v0.7.3.apk
+          name: 4011-Model-v0.7.4
+          path: ${{ github.workspace }}/4011-Model-v0.7.4.apk
