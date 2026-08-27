@@ -1,4 +1,4 @@
-name: 4011 Model APK v0.7.2
+name: 4011 Model APK v0.7.3
 
 on:
   push:
@@ -67,8 +67,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 38
-                  versionName '0.7.2'
+                  versionCode 39
+                  versionName '0.7.3'
               }
           }
           dependencies {
@@ -156,6 +156,8 @@ jobs:
           import android.graphics.Color;
           import android.graphics.Typeface;
           import android.graphics.drawable.GradientDrawable;
+          import android.graphics.LinearGradient;
+          import android.graphics.Shader;
           import android.view.*;
           import android.widget.*;
           import com.google.android.material.textfield.TextInputEditText;
@@ -173,6 +175,11 @@ jobs:
               String selectedFinish = "";
               String selectedFinishDate = "";
               String currentPage = "home";
+              // "Yeni Görev" sihirbazında hangi adımdaysak, o adımın "geri" davranışı
+              // buraya yazılır (her render'da güncellenir). navigateBack() bunu okuyarak
+              // sistem geri tuşu / kaydırma hareketini de ok butonuyla birebir aynı
+              // şekilde çalıştırır.
+              Runnable pendingBack = null;
 
               static final String DEFAULT_PEOPLE = "Hazım|Ender|Yücel|Emirhan|Melike";
 
@@ -250,6 +257,8 @@ jobs:
               static final int BORDER_MUTED = Color.rgb(80, 60, 120);
               static final int BORDER_PURPLE_GLOW = Color.argb(140, 168, 44, 255);
               static final int BORDER_GREEN_GLOW = Color.argb(120, 57, 255, 160);
+              static final int SIGNATURE_NAVY = Color.rgb(28, 50, 120);
+              static final int SIGNATURE_BLUE = Color.rgb(110, 175, 255);
 
               ArrayList<String> ownerList() {
                   String raw = prefs.getString("owner_list", DEFAULT_PEOPLE);
@@ -458,8 +467,10 @@ jobs:
                       super.onBackPressed();
                       return;
                   }
-                  if ("complete".equals(currentPage) || "continue".equals(currentPage)) {
-                      ongoing();
+                  if (("newRecord".equals(currentPage) || "complete".equals(currentPage)) && pendingBack != null) {
+                      pendingBack.run();
+                  } else if ("continue".equals(currentPage)) {
+                      confirmExitContinue();
                   } else if ("trainDefaults".equals(currentPage) || "peopleList".equals(currentPage)) {
                       settings();
                   } else {
@@ -823,6 +834,17 @@ jobs:
                   row2.addView(tileSettings, lp4);
                   root.addView(row2);
 
+                  root.addView(new View(this), new LinearLayout.LayoutParams(-1, 0, 1f));
+
+                  TextView signature = text("Furkan NABİT", 13, SIGNATURE_BLUE, true);
+                  signature.setGravity(Gravity.CENTER);
+                  signature.setLetterSpacing(.12f);
+                  signature.setPadding(0, dp(18), 0, dp(4));
+                  signature.getPaint().setShader(new LinearGradient(
+                          0, 0, signature.getPaint().measureText("Furkan NABİT"), 0,
+                          SIGNATURE_NAVY, SIGNATURE_BLUE, Shader.TileMode.CLAMP));
+                  root.addView(signature, new LinearLayout.LayoutParams(-1, -2));
+
                   tileNew.setOnClickListener(v -> newRecord());
                   tileOngoing.setOnClickListener(v -> ongoing());
                   tileMonthly.setOnClickListener(v -> monthly());
@@ -858,8 +880,9 @@ jobs:
                   render[0] = () -> {
                       int step = wizStep[0];
                       Runnable onBack = (step == 0)
-                              ? (Runnable) this::home
+                              ? (Runnable) this::confirmExitNewRecord
                               : (Runnable) (() -> { wizStep[0] = step - 1; render[0].run(); });
+                      pendingBack = onBack;
 
                       if (step == 0) {
                           wizardPage("Hangi gün?", "Görevin başlayacağı tarihi seç.", step, totalSteps, onBack);
@@ -1007,6 +1030,19 @@ jobs:
                   };
 
                   render[0].run();
+              }
+
+              // Adım 0'dan ("Hangi gün?") geri gidilmek istendiğinde -- ister ok
+              // butonuyla, ister sistem geri tuşu/kaydırma hareketiyle -- kayıt
+              // sihirbazından çıkmadan önce onay ister. Yanlışlıkla yapılan bir
+              // kaydırma yüzünden görev kaydının kaybolmasını engellemek içindir.
+              void confirmExitNewRecord() {
+                  new AlertDialog.Builder(this)
+                          .setTitle("Görev Kaydından Çık")
+                          .setMessage("Görev kaydından çıkılacak, onaylıyor musun?")
+                          .setNegativeButton("Vazgeç", null)
+                          .setPositiveButton("Evet, Çık", (d, which) -> home())
+                          .show();
               }
 
               // "Yeni Görev" akışının ilk adımından ulaşılan, tren almayan
@@ -1369,8 +1405,9 @@ jobs:
                   render[0] = () -> {
                       int step = wizStep[0];
                       Runnable onBack = (step == 0)
-                              ? (Runnable) this::ongoing
+                              ? (Runnable) this::confirmExitComplete
                               : (Runnable) (() -> { wizStep[0] = step - 1; render[0].run(); });
+                      pendingBack = onBack;
 
                       if (step == 0) {
                           wizardPage("Görev ne zaman bitti?", null, step, totalSteps, onBack);
@@ -1492,6 +1529,18 @@ jobs:
                   render[0].run();
               }
 
+              // Adım 0'dan ("Görev ne zaman bitti?") geri gidilmek istendiğinde --
+              // ister ok butonuyla, ister sistem geri tuşu/kaydırma hareketiyle --
+              // tamamlama işleminden çıkmadan önce onay ister.
+              void confirmExitComplete() {
+                  new AlertDialog.Builder(this)
+                          .setTitle("Görev Tamamlamadan Çık")
+                          .setMessage("Görevi tamamlama işleminden çıkılacak, onaylıyor musun?")
+                          .setNegativeButton("Vazgeç", null)
+                          .setPositiveButton("Evet, Çık", (d, which) -> ongoing())
+                          .show();
+              }
+
               void continueFromHotel(String r) {
                   currentPage = "continue";
                   String[] a = r.split("\\|", -1);
@@ -1606,6 +1655,21 @@ jobs:
                   Button cancel = action("Vazgeç", false);
                   root.addView(cancel);
                   cancel.setOnClickListener(v -> ongoing());
+              }
+
+              // "Treni Devam Ettir" adım adım değil tek sayfalık bir form, o yüzden
+              // ok/adım atlama sorunu burada yok. Yine de birçok alan dolduruluyor;
+              // yanlışlıkla yapılan bir kaydırmayla bunların kaybolmasını engellemek
+              // için sistem geri tuşu/kaydırma hareketi burada da onay ister.
+              // Ekrandaki "Vazgeç" butonu zaten net bir seçim olduğundan ona
+              // dokunulmadı.
+              void confirmExitContinue() {
+                  new AlertDialog.Builder(this)
+                          .setTitle("Tren Devam Kaydından Çık")
+                          .setMessage("Girdiğin bilgiler kaydedilmeden çıkılacak, onaylıyor musun?")
+                          .setNegativeButton("Vazgeç", null)
+                          .setPositiveButton("Evet, Çık", (d, which) -> ongoing())
+                          .show();
               }
 
               void settings() {
@@ -2545,11 +2609,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.7.2.apk"
-          test -s "$GITHUB_WORKSPACE/4011-Model-v0.7.2.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.7.3.apk"
+          test -s "$GITHUB_WORKSPACE/4011-Model-v0.7.3.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v6
         with:
-          name: 4011-Model-v0.7.2
-          path: ${{ github.workspace }}/4011-Model-v0.7.2.apk
+          name: 4011-Model-v0.7.3
+          path: ${{ github.workspace }}/4011-Model-v0.7.3.apk
