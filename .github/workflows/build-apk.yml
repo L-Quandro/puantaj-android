@@ -177,7 +177,7 @@ jobs:
               static final String DEFAULT_PEOPLE = "Hazım|Ender|Yücel|Emirhan|Melike";
 
               // Sabit tren listeleri — tek yerden yönetilir, tüm ekranlar buradan okur.
-              static final String[] OUTBOUND_TRAINS = {"23201", "23202", "23205", "23207"};
+              static final String[] OUTBOUND_TRAINS = {"23201", "23202", "23205", "23207", "27450(des1)", "27452(des2)", "27454(des3)", "Destek-2/3"};
               static final String[] RETURN_TRAINS = {"13102", "13104", "13106", "13108", "53503"};
 
               // Gidiş treni seçilince başlangıç saatini otomatik dolduran fabrika
@@ -460,6 +460,8 @@ jobs:
                   }
                   if ("complete".equals(currentPage) || "continue".equals(currentPage)) {
                       ongoing();
+                  } else if ("trainDefaults".equals(currentPage) || "peopleList".equals(currentPage)) {
+                      settings();
                   } else {
                       home();
                   }
@@ -1453,15 +1455,22 @@ jobs:
                           Button hotel = action("🏨  Otele Geç / Treni Devam Ettir", false);
                           root.addView(hotel);
                           hotel.setOnClickListener(v -> {
-                              String hotelArrival = addThirtyMinutes(selectedFinishDate, selectedFinish);
-                              String newRecord = r.replace("|OPEN", "|HOTEL|" + selectedFinishDate + "|" +
-                                      selectedFinish + "|" + wizFinishOwner[0] + "|" + hotelArrival);
-                              records.set(records.indexOf(r), newRecord);
-                              rememberOwner(wizFinishOwner[0]);
-                              persist();
-                              Toast.makeText(this, "Otel konaklaması kaydedildi • Otele varış " + hotelArrival,
-                                      Toast.LENGTH_LONG).show();
-                              home();
+                              new AlertDialog.Builder(this)
+                                      .setTitle("Otele Geçiş Onayı")
+                                      .setMessage("Otele gittiğini onaylıyor musun?")
+                                      .setNegativeButton("Vazgeç", null)
+                                      .setPositiveButton("Evet, Otele Geçtim", (d, which) -> {
+                                          String hotelArrival = addThirtyMinutes(selectedFinishDate, selectedFinish);
+                                          String newRecord = r.replace("|OPEN", "|HOTEL|" + selectedFinishDate + "|" +
+                                                  selectedFinish + "|" + wizFinishOwner[0] + "|" + hotelArrival);
+                                          records.set(records.indexOf(r), newRecord);
+                                          rememberOwner(wizFinishOwner[0]);
+                                          persist();
+                                          Toast.makeText(this, "Otel konaklaması kaydedildi • Otele varış " + hotelArrival,
+                                                  Toast.LENGTH_LONG).show();
+                                          home();
+                                      })
+                                      .show();
                           });
 
                           Button save = actionSuccess("✓  Görevi Tamamla ve Eve Dön");
@@ -1644,12 +1653,106 @@ jobs:
                   defaultCard.addView(defaultSpinner, defaultSpinnerParams);
                   root.addView(defaultCard);
 
-                  LinearLayout trainDefaultsIntro = card();
-                  trainDefaultsIntro.addView(section("Tren Varsayılanları"));
-                  trainDefaultsIntro.addView(text(
-                          "Gidiş treni seçilince başlangıç saati otomatik dolar. Otelden devam ederken de karşılığı olan dönüş treni önerilir. İkisini de burada değiştirebilirsin.",
+                  LinearLayout trainDefaultsEntry = card();
+                  trainDefaultsEntry.addView(section("Tren Varsayılanları"));
+                  trainDefaultsEntry.addView(text(
+                          "Gidiş treni seçilince başlangıç saati otomatik dolar, otelden devam ederken dönüş treni önerilir.  •  " + OUTBOUND_TRAINS.length + " tren",
                           12, TEXT_MUTED, false));
-                  root.addView(trainDefaultsIntro);
+                  Button openTrainDefaults = choice("Tren Varsayılanlarını Aç  →");
+                  trainDefaultsEntry.addView(openTrainDefaults);
+                  root.addView(trainDefaultsEntry);
+                  openTrainDefaults.setOnClickListener(v -> trainDefaultsPage());
+
+                  LinearLayout peopleEntry = card();
+                  peopleEntry.addView(section("Hazır İsim Listesi"));
+                  peopleEntry.addView(text(
+                          "Teslim/tesellüm ve kiminle gittin alanlarında tek dokunuşla seçilecek isimleri buradan yönet.  •  " + ownerList().size() + " kişi",
+                          12, TEXT_MUTED, false));
+                  Button openPeopleList = choice("Hazır İsim Listesini Aç  →");
+                  peopleEntry.addView(openPeopleList);
+                  root.addView(peopleEntry);
+                  openPeopleList.setOnClickListener(v -> peopleListPage());
+
+                  LinearLayout hotelCard = card();
+                  hotelCard.addView(section("Konaklama"));
+                  hotelCard.addView(text(
+                          "Görevi kapatırken sorulacak \"otelde konaklanan gece sayısı\" seçiminin azami değeri.",
+                          12, Color.rgb(158,148,190), false));
+
+                  LinearLayout stepperRow = new LinearLayout(this);
+                  stepperRow.setGravity(Gravity.CENTER_VERTICAL);
+                  stepperRow.setPadding(0, dp(10), 0, 0);
+
+                  Button minusBtn = new Button(this);
+                  minusBtn.setText("−");
+                  minusBtn.setTextSize(20);
+                  minusBtn.setTextColor(Color.rgb(244,241,252));
+                  minusBtn.setAllCaps(false);
+                  minusBtn.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                  minusBtn.setMinHeight(0);
+                  minusBtn.setMinWidth(0);
+                  minusBtn.setPadding(0, 0, 0, 0);
+                  minusBtn.setBackground(bg(Color.rgb(26,20,40), 16));
+
+                  TextView hotelMaxValue = text(String.valueOf(getHotelNightsMax()), 18, Color.rgb(244,241,252), true);
+                  hotelMaxValue.setGravity(Gravity.CENTER);
+                  LinearLayout.LayoutParams valueParams = new LinearLayout.LayoutParams(dp(64), dp(48));
+                  valueParams.setMargins(dp(10), 0, dp(10), 0);
+
+                  Button plusBtn = new Button(this);
+                  plusBtn.setText("＋");
+                  plusBtn.setTextSize(20);
+                  plusBtn.setTextColor(Color.rgb(244,241,252));
+                  plusBtn.setAllCaps(false);
+                  plusBtn.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                  plusBtn.setMinHeight(0);
+                  plusBtn.setMinWidth(0);
+                  plusBtn.setPadding(0, 0, 0, 0);
+                  plusBtn.setBackground(bg(Color.rgb(168,44,255), 16));
+
+                  LinearLayout.LayoutParams stepBtnParams = new LinearLayout.LayoutParams(dp(48), dp(48));
+
+                  stepperRow.addView(minusBtn, stepBtnParams);
+                  stepperRow.addView(hotelMaxValue, valueParams);
+                  stepperRow.addView(plusBtn, stepBtnParams);
+                  hotelCard.addView(stepperRow);
+                  root.addView(hotelCard);
+
+                  minusBtn.setOnClickListener(v -> {
+                      int cur = getHotelNightsMax();
+                      if (cur > 1) {
+                          setHotelNightsMax(cur - 1);
+                          hotelMaxValue.setText(String.valueOf(cur - 1));
+                      }
+                  });
+                  plusBtn.setOnClickListener(v -> {
+                      int cur = getHotelNightsMax();
+                      if (cur < 30) {
+                          setHotelNightsMax(cur + 1);
+                          hotelMaxValue.setText(String.valueOf(cur + 1));
+                      }
+                  });
+
+                  listSwitch.setOnCheckedChangeListener((buttonView, checked) -> prefs.edit().putBoolean("use_owner_list", checked).apply());
+                  sameSwitch.setOnCheckedChangeListener((buttonView, checked) -> prefs.edit().putBoolean("auto_continue_person", checked).apply());
+                  defaultSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                      @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                          String chosen = choices.get(position);
+                          prefs.edit().putString("default_owner", "Seçim yok".equals(chosen) ? "" : chosen).apply();
+                      }
+                      @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+                  });
+
+                  Button back = action("Ana Sayfa", false);
+                  root.addView(back);
+                  back.setOnClickListener(v -> home());
+              }
+
+              // "Tren Varsayılanları" artık Ayarlar'ın içinde değil, ayrı bir alt sayfa —
+              // Ayarlar ekranındaki "Tren Varsayılanlarını Aç" butonu buraya yönlendirir.
+              void trainDefaultsPage() {
+                  currentPage = "trainDefaults";
+                  page("Tren Varsayılanları", "Gidiş treni seçilince başlangıç saati otomatik dolar. Otelden devam ederken de karşılığı olan dönüş treni önerilir. İkisini de burada değiştirebilirsin.");
 
                   for (String trainNo : OUTBOUND_TRAINS) {
                       LinearLayout trainRow = card(CARD_BG_ALT, BORDER_MUTED);
@@ -1693,8 +1796,18 @@ jobs:
                       root.addView(trainRow);
                   }
 
+                  Button back = action("Ayarlar", false);
+                  root.addView(back);
+                  back.setOnClickListener(v -> settings());
+              }
+
+              // "Hazır İsim Listesi" artık Ayarlar'ın içinde değil, ayrı bir alt sayfa —
+              // Ayarlar ekranındaki "Hazır İsim Listesini Aç" butonu buraya yönlendirir.
+              void peopleListPage() {
+                  currentPage = "peopleList";
+                  page("Hazır İsim Listesi", "Teslim/tesellüm ve kiminle gittin alanlarında tek dokunuşla seçilecek isimleri buradan yönet.");
+
                   LinearLayout peopleCard = card();
-                  peopleCard.addView(section("Hazır isim listesi"));
                   LinearLayout peopleContainer = new LinearLayout(this);
                   peopleContainer.setOrientation(LinearLayout.VERTICAL);
                   peopleCard.addView(peopleContainer);
@@ -1774,79 +1887,9 @@ jobs:
                   });
                   root.addView(peopleCard);
 
-                  LinearLayout hotelCard = card();
-                  hotelCard.addView(section("Konaklama"));
-                  hotelCard.addView(text(
-                          "Görevi kapatırken sorulacak \"otelde konaklanan gece sayısı\" seçiminin azami değeri.",
-                          12, Color.rgb(158,148,190), false));
-
-                  LinearLayout stepperRow = new LinearLayout(this);
-                  stepperRow.setGravity(Gravity.CENTER_VERTICAL);
-                  stepperRow.setPadding(0, dp(10), 0, 0);
-
-                  Button minusBtn = new Button(this);
-                  minusBtn.setText("−");
-                  minusBtn.setTextSize(20);
-                  minusBtn.setTextColor(Color.rgb(244,241,252));
-                  minusBtn.setAllCaps(false);
-                  minusBtn.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-                  minusBtn.setMinHeight(0);
-                  minusBtn.setMinWidth(0);
-                  minusBtn.setPadding(0, 0, 0, 0);
-                  minusBtn.setBackground(bg(Color.rgb(26,20,40), 16));
-
-                  TextView hotelMaxValue = text(String.valueOf(getHotelNightsMax()), 18, Color.rgb(244,241,252), true);
-                  hotelMaxValue.setGravity(Gravity.CENTER);
-                  LinearLayout.LayoutParams valueParams = new LinearLayout.LayoutParams(dp(64), dp(48));
-                  valueParams.setMargins(dp(10), 0, dp(10), 0);
-
-                  Button plusBtn = new Button(this);
-                  plusBtn.setText("＋");
-                  plusBtn.setTextSize(20);
-                  plusBtn.setTextColor(Color.rgb(244,241,252));
-                  plusBtn.setAllCaps(false);
-                  plusBtn.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-                  plusBtn.setMinHeight(0);
-                  plusBtn.setMinWidth(0);
-                  plusBtn.setPadding(0, 0, 0, 0);
-                  plusBtn.setBackground(bg(Color.rgb(168,44,255), 16));
-
-                  LinearLayout.LayoutParams stepBtnParams = new LinearLayout.LayoutParams(dp(48), dp(48));
-
-                  stepperRow.addView(minusBtn, stepBtnParams);
-                  stepperRow.addView(hotelMaxValue, valueParams);
-                  stepperRow.addView(plusBtn, stepBtnParams);
-                  hotelCard.addView(stepperRow);
-                  root.addView(hotelCard);
-
-                  minusBtn.setOnClickListener(v -> {
-                      int cur = getHotelNightsMax();
-                      if (cur > 1) {
-                          setHotelNightsMax(cur - 1);
-                          hotelMaxValue.setText(String.valueOf(cur - 1));
-                      }
-                  });
-                  plusBtn.setOnClickListener(v -> {
-                      int cur = getHotelNightsMax();
-                      if (cur < 30) {
-                          setHotelNightsMax(cur + 1);
-                          hotelMaxValue.setText(String.valueOf(cur + 1));
-                      }
-                  });
-
-                  listSwitch.setOnCheckedChangeListener((buttonView, checked) -> prefs.edit().putBoolean("use_owner_list", checked).apply());
-                  sameSwitch.setOnCheckedChangeListener((buttonView, checked) -> prefs.edit().putBoolean("auto_continue_person", checked).apply());
-                  defaultSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
-                      @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                          String chosen = choices.get(position);
-                          prefs.edit().putString("default_owner", "Seçim yok".equals(chosen) ? "" : chosen).apply();
-                      }
-                      @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
-                  });
-
-                  Button back = action("Ana Sayfa", false);
+                  Button back = action("Ayarlar", false);
                   root.addView(back);
-                  back.setOnClickListener(v -> home());
+                  back.setOnClickListener(v -> settings());
               }
 
               void chooseTrain(TextInputLayout target, String[] trains, String titleText) {
