@@ -1,4 +1,4 @@
-name: 4011 Model APK v0.7.1
+name: 4011 Model APK v0.7.2
 
 on:
   push:
@@ -67,8 +67,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 37
-                  versionName '0.7.1'
+                  versionCode 38
+                  versionName '0.7.2'
               }
           }
           dependencies {
@@ -175,6 +175,51 @@ jobs:
               String currentPage = "home";
 
               static final String DEFAULT_PEOPLE = "Hazım|Ender|Yücel|Emirhan|Melike";
+
+              // Sabit tren listeleri — tek yerden yönetilir, tüm ekranlar buradan okur.
+              static final String[] OUTBOUND_TRAINS = {"23201", "23202", "23205", "23207"};
+              static final String[] RETURN_TRAINS = {"13102", "13104", "13106", "13108", "53503"};
+
+              // Gidiş treni seçilince başlangıç saatini otomatik dolduran fabrika
+              // varsayılanları. Ayarlar ekranından değiştirilen değerler prefs'te
+              // saklanır ve bu varsayılanların önüne geçer.
+              String factoryDefaultTime(String trainNo) {
+                  switch (trainNo) {
+                      case "23201": return "00:00";
+                      case "23205": return "07:30";
+                      case "23207": return "15:15";
+                      case "23202": return "10:25";
+                      default: return "";
+                  }
+              }
+
+              // Otelden sonra devam ederken, gidiş treninin karşılığı olan dönüş
+              // treni önerisi için fabrika varsayılanları.
+              String factoryDefaultReturn(String trainNo) {
+                  switch (trainNo) {
+                      case "23201": return "13106";
+                      case "23202": return "53503";
+                      case "23205": return "13102";
+                      case "23207": return "13104";
+                      default: return "";
+                  }
+              }
+
+              String getTrainDefaultTime(String trainNo) {
+                  return prefs.getString("train_time_" + trainNo, factoryDefaultTime(trainNo));
+              }
+
+              void setTrainDefaultTime(String trainNo, String time) {
+                  prefs.edit().putString("train_time_" + trainNo, time).apply();
+              }
+
+              String getTrainReturnMap(String trainNo) {
+                  return prefs.getString("train_return_" + trainNo, factoryDefaultReturn(trainNo));
+              }
+
+              void setTrainReturnMap(String trainNo, String returnTrain) {
+                  prefs.edit().putString("train_return_" + trainNo, returnTrain).apply();
+              }
 
               // ---- Görsel kimlik: "Derin Uzay / Neon" paleti ----
               // Tüm renkler burada tek yerde tanımlı; ekranlardaki her çağrı
@@ -364,6 +409,9 @@ jobs:
                   void setValue(String value) {
                       if (value == null) value = "";
                       value = value.trim();
+                      if (value.isEmpty()) {
+                          return; // gösterilecek bir şey yok — kurulumdaki varsayılan görünüm korunur
+                      }
                       if (useOwnerList() && ownerList().contains(value)) {
                           selected = value;
                           chooser.setText(label + "  •  " + selected);
@@ -872,9 +920,10 @@ jobs:
                           TextView outLabel = text("GİDİŞ", 11, TEXT_MUTED, true);
                           outLabel.setPadding(0, dp(14), 0, dp(8));
                           root.addView(outLabel);
-                          String[] outboundTrains = {"23201", "23202", "23205", "23207"};
-                          root.addView(chipRow(outboundTrains, wizTrain[0], picked -> {
+                          root.addView(chipRow(OUTBOUND_TRAINS, wizTrain[0], picked -> {
                               wizTrain[0] = picked;
+                              String defaultTime = getTrainDefaultTime(picked);
+                              if (!defaultTime.isEmpty()) selectedStart = defaultTime;
                               wizStep[0] = 3;
                               render[0].run();
                           }));
@@ -882,8 +931,7 @@ jobs:
                           TextView retLabel = text("DÖNÜŞ", 11, TEXT_MUTED, true);
                           retLabel.setPadding(0, dp(14), 0, dp(8));
                           root.addView(retLabel);
-                          String[] returnTrains = {"13102", "13104", "13106", "13108", "53503"};
-                          root.addView(chipRow(returnTrains, wizTrain[0], picked -> {
+                          root.addView(chipRow(RETURN_TRAINS, wizTrain[0], picked -> {
                               wizTrain[0] = picked;
                               wizStep[0] = 3;
                               render[0].run();
@@ -900,6 +948,8 @@ jobs:
                                   return;
                               }
                               wizTrain[0] = v2;
+                              String defaultTime = getTrainDefaultTime(v2);
+                              if (!defaultTime.isEmpty()) selectedStart = defaultTime;
                               wizStep[0] = 3;
                               render[0].run();
                           });
@@ -967,10 +1017,9 @@ jobs:
                       .setItems(options, (dialog, which) -> {
                           String sel = options[which];
                           if (sel.equals("Tren İptali")) {
-                              String[] allTrains = {
-                                  "23201", "23202", "23205", "23207",
-                                  "13102", "13104", "13106", "13108", "53503"
-                              };
+                              String[] allTrains = new String[OUTBOUND_TRAINS.length + RETURN_TRAINS.length];
+                              System.arraycopy(OUTBOUND_TRAINS, 0, allTrains, 0, OUTBOUND_TRAINS.length);
+                              System.arraycopy(RETURN_TRAINS, 0, allTrains, OUTBOUND_TRAINS.length, RETURN_TRAINS.length);
 
                               LinearLayout cancelBox = new LinearLayout(this);
                               cancelBox.setOrientation(LinearLayout.VERTICAL);
@@ -1464,7 +1513,8 @@ jobs:
 
                   TextInputLayout train = field("Tren no");
                   TextInputEditText trainEdit = (TextInputEditText) train.getEditText();
-                  if (trainEdit != null) trainEdit.setText(a[3]);
+                  String suggestedReturn = getTrainReturnMap(a[3]);
+                  if (trainEdit != null) trainEdit.setText(suggestedReturn.isEmpty() ? a[3] : suggestedReturn);
                   c.addView(train);
 
                   c.addView(section("Tren seçimi"));
@@ -1486,14 +1536,12 @@ jobs:
                   trainButtons.addView(returnTrain);
                   c.addView(trainButtons);
 
-                  outbound.setOnClickListener(v -> chooseTrain(train, new String[]{
-                          "23201", "23202", "23205", "23207"
-                  }, "Gidiş trenini seç"));
-                  returnTrain.setOnClickListener(v -> chooseTrain(train, new String[]{
-                          "13102", "13104", "13106", "13108", "53503"
-                  }, "Dönüş trenini seç"));
+                  outbound.setOnClickListener(v -> chooseTrain(train, OUTBOUND_TRAINS, "Gidiş trenini seç"));
+                  returnTrain.setOnClickListener(v -> chooseTrain(train, RETURN_TRAINS, "Dönüş trenini seç"));
 
-                  c.addView(text("Manuel değiştirmek için Tren no alanını doğrudan düzenleyebilirsin.",
+                  c.addView(text(suggestedReturn.isEmpty()
+                              ? "Manuel değiştirmek için Tren no alanını doğrudan düzenleyebilirsin."
+                              : "Dönüş karşılığı otomatik önerildi  •  " + a[3] + " → " + suggestedReturn + ". Değiştirmek için alanı düzenleyebilirsin.",
                           12, Color.rgb(158,148,190), false));
 
                   CheckBox samePerson = new CheckBox(this);
@@ -1595,6 +1643,55 @@ jobs:
                   defaultSpinnerParams.setMargins(0, dp(10), 0, 0);
                   defaultCard.addView(defaultSpinner, defaultSpinnerParams);
                   root.addView(defaultCard);
+
+                  LinearLayout trainDefaultsIntro = card();
+                  trainDefaultsIntro.addView(section("Tren Varsayılanları"));
+                  trainDefaultsIntro.addView(text(
+                          "Gidiş treni seçilince başlangıç saati otomatik dolar. Otelden devam ederken de karşılığı olan dönüş treni önerilir. İkisini de burada değiştirebilirsin.",
+                          12, TEXT_MUTED, false));
+                  root.addView(trainDefaultsIntro);
+
+                  for (String trainNo : OUTBOUND_TRAINS) {
+                      LinearLayout trainRow = card(CARD_BG_ALT, BORDER_MUTED);
+                      trainRow.addView(text(trainNo, 16, TEXT_PRIMARY, true));
+
+                      Button timeBtn = choice("Kalkış saati  •  " + getTrainDefaultTime(trainNo));
+                      trainRow.addView(timeBtn);
+                      timeBtn.setOnClickListener(v -> {
+                          Calendar cal = Calendar.getInstance();
+                          try {
+                              String[] hm = getTrainDefaultTime(trainNo).split(":");
+                              cal.set(Calendar.HOUR_OF_DAY, Integer.parseInt(hm[0]));
+                              cal.set(Calendar.MINUTE, Integer.parseInt(hm[1]));
+                          } catch (Exception ignored) {}
+                          new TimePickerDialog(this, (view, hour, minute) -> {
+                              String newTime = String.format(Locale.getDefault(), "%02d:%02d", hour, minute);
+                              setTrainDefaultTime(trainNo, newTime);
+                              timeBtn.setText("Kalkış saati  •  " + newTime);
+                          }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), true).show();
+                      });
+
+                      Button returnBtn = choice("Dönüş karşılığı  •  " + getTrainReturnMap(trainNo));
+                      trainRow.addView(returnBtn);
+                      returnBtn.setOnClickListener(v -> {
+                          String current = getTrainReturnMap(trainNo);
+                          int checked = -1;
+                          for (int i = 0; i < RETURN_TRAINS.length; i++) {
+                              if (RETURN_TRAINS[i].equals(current)) { checked = i; break; }
+                          }
+                          new AlertDialog.Builder(this)
+                                  .setTitle(trainNo + " dönüşü")
+                                  .setSingleChoiceItems(RETURN_TRAINS, checked, (d, which) -> {
+                                      setTrainReturnMap(trainNo, RETURN_TRAINS[which]);
+                                      returnBtn.setText("Dönüş karşılığı  •  " + RETURN_TRAINS[which]);
+                                      d.dismiss();
+                                  })
+                                  .setNegativeButton("İptal", null)
+                                  .show();
+                      });
+
+                      root.addView(trainRow);
+                  }
 
                   LinearLayout peopleCard = card();
                   peopleCard.addView(section("Hazır isim listesi"));
@@ -2405,11 +2502,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.7.1.apk"
-          test -s "$GITHUB_WORKSPACE/4011-Model-v0.7.1.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.7.2.apk"
+          test -s "$GITHUB_WORKSPACE/4011-Model-v0.7.2.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v6
         with:
-          name: 4011-Model-v0.7.1
-          path: ${{ github.workspace }}/4011-Model-v0.7.1.apk
+          name: 4011-Model-v0.7.2
+          path: ${{ github.workspace }}/4011-Model-v0.7.2.apk
