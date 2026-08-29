@@ -1,4 +1,4 @@
-name: 4011 Model APK v0.7.4
+name: 4011 Model APK v0.8.0
 
 on:
   push:
@@ -67,8 +67,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 40
-                  versionName '0.7.4'
+                  versionCode 41
+                  versionName '0.8.0'
               }
           }
           dependencies {
@@ -158,6 +158,8 @@ jobs:
           import android.graphics.drawable.GradientDrawable;
           import android.graphics.LinearGradient;
           import android.graphics.Shader;
+          import android.net.Uri;
+          import java.io.*;
           import android.view.*;
           import android.widget.*;
           import com.google.android.material.textfield.TextInputEditText;
@@ -184,7 +186,7 @@ jobs:
               static final String DEFAULT_PEOPLE = "Hazım|Ender|Yücel|Emirhan|Melike";
 
               // Sabit tren listeleri — tek yerden yönetilir, tüm ekranlar buradan okur.
-              static final String[] OUTBOUND_TRAINS = {"23201", "23202", "23205", "23207", "27450(des1)", "27452(des2)", "27454(des3)", "Destek-2/3"};
+              static final String[] OUTBOUND_TRAINS = {"23201", "23202", "23205", "23207", "27450(des1)", "27452(des2)", "27454(des3)", "Destek-2/3", "Bila"};
               static final String[] RETURN_TRAINS = {"13102", "13104", "13106", "13108", "53503"};
 
               // Gidiş treni seçilince başlangıç saatini otomatik dolduran fabrika
@@ -460,6 +462,74 @@ jobs:
               @Override
               public void onBackPressed() {
                   navigateBack();
+              }
+
+              // --- İmza görseli seçme/kaydetme ---
+              // MainActivity düz Activity'den türediği için (ComponentActivity değil),
+              // modern ActivityResult API'si kullanılamıyor; mimariyi değiştirmemek
+              // için klasik startActivityForResult/onActivityResult yöntemi kullanıldı.
+              static final int REQUEST_PICK_SIGNATURE = 4011;
+              String pendingSignatureTarget = "";
+
+              String sanitizeSignatureName(String name) {
+                  if (name == null || name.trim().isEmpty()) return "_";
+                  return name.trim().replaceAll("[^a-zA-Z0-9ığüşöçİĞÜŞÖÇıİ_-]", "_");
+              }
+
+              File signatureDir() {
+                  File dir = new File(getFilesDir(), "imzalar");
+                  if (!dir.exists()) dir.mkdirs();
+                  return dir;
+              }
+
+              File signatureFile(String target) {
+                  return new File(signatureDir(), sanitizeSignatureName(target) + ".png");
+              }
+
+              boolean hasSignature(String target) {
+                  return signatureFile(target).exists();
+              }
+
+              void pickSignatureFor(String target) {
+                  pendingSignatureTarget = target;
+                  Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                  intent.setType("image/*");
+                  try {
+                      startActivityForResult(intent, REQUEST_PICK_SIGNATURE);
+                  } catch (Exception e) {
+                      Toast.makeText(this, "Görsel seçici açılamadı.", Toast.LENGTH_SHORT).show();
+                  }
+              }
+
+              @Override
+              protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+                  super.onActivityResult(requestCode, resultCode, data);
+                  if (requestCode != REQUEST_PICK_SIGNATURE) return;
+                  if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+                      pendingSignatureTarget = "";
+                      return;
+                  }
+                  Uri uri = data.getData();
+                  String target = pendingSignatureTarget;
+                  pendingSignatureTarget = "";
+                  boolean saved = false;
+                  try (InputStream in = getContentResolver().openInputStream(uri);
+                       FileOutputStream out = new FileOutputStream(signatureFile(target))) {
+                      if (in != null) {
+                          byte[] buf = new byte[4096];
+                          int len;
+                          while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
+                          saved = true;
+                      }
+                  } catch (Exception e) {
+                      saved = false;
+                  }
+                  Toast.makeText(this, saved ? "İmza kaydedildi." : "İmza kaydedilemedi.", Toast.LENGTH_SHORT).show();
+                  if ("_puantaj_sahibi".equals(target)) {
+                      settingsPersonnelInfo();
+                  } else if (!target.isEmpty()) {
+                      settingsPeopleSignatures();
+                  }
               }
 
               void navigateBack() {
@@ -1737,6 +1807,26 @@ jobs:
                   root.addView(peopleEntry);
                   openPeopleList.setOnClickListener(v -> peopleListPage());
 
+                  LinearLayout signaturesEntry = card();
+                  signaturesEntry.addView(section("Kişiler ve İmzalar"));
+                  signaturesEntry.addView(text(
+                          "Excel çıktısında teslim/tesellüm hücresine otomatik eklenecek imzaları buradan yönet.",
+                          12, TEXT_MUTED, false));
+                  Button openSignatures = choice("Kişiler ve İmzaları Aç  →");
+                  signaturesEntry.addView(openSignatures);
+                  root.addView(signaturesEntry);
+                  openSignatures.setOnClickListener(v -> settingsPeopleSignatures());
+
+                  LinearLayout personnelEntry = card();
+                  personnelEntry.addView(section("Puantaj Sahibi Bilgileri"));
+                  personnelEntry.addView(text(
+                          "Sicil no, ad-soyad, görev, görev merkezi ve kendi imzan — tüm Excel çıktılarında sabit kullanılır.",
+                          12, TEXT_MUTED, false));
+                  Button openPersonnel = choice("Puantaj Sahibi Bilgilerini Aç  →");
+                  personnelEntry.addView(openPersonnel);
+                  root.addView(personnelEntry);
+                  openPersonnel.setOnClickListener(v -> settingsPersonnelInfo());
+
                   LinearLayout hotelCard = card();
                   hotelCard.addView(section("Konaklama"));
                   hotelCard.addView(text(
@@ -1810,6 +1900,91 @@ jobs:
                   Button back = action("Ana Sayfa", false);
                   root.addView(back);
                   back.setOnClickListener(v -> home());
+              }
+
+              // Puantaj sahibinin sabit bilgileri — bir kez girilir, oluşturulan
+              // tüm Excel çıktılarında değişmeden kullanılır. Ay/yıl seçimi bu
+              // bilgileri etkilemez.
+              void settingsPersonnelInfo() {
+                  currentPage = "settingsPersonnelInfo";
+                  page("Puantaj Sahibi Bilgileri", "Bir kez gir; oluşturulan tüm Excel çıktılarında bu bilgiler sabit kullanılır.");
+
+                  LinearLayout c = card();
+                  TextInputLayout sicilField = field("Sicil No");
+                  if (sicilField.getEditText() != null) sicilField.getEditText().setText(prefs.getString("owner_sicil_no", ""));
+                  c.addView(sicilField);
+
+                  TextInputLayout adField = field("Adı Soyadı");
+                  if (adField.getEditText() != null) adField.getEditText().setText(prefs.getString("owner_ad_soyad", ""));
+                  c.addView(adField);
+
+                  TextInputLayout goreviField = field("Görevi");
+                  if (goreviField.getEditText() != null) goreviField.getEditText().setText(prefs.getString("owner_gorevi", ""));
+                  c.addView(goreviField);
+
+                  TextInputLayout merkeziField = field("Görev Merkezi");
+                  if (merkeziField.getEditText() != null) merkeziField.getEditText().setText(prefs.getString("owner_merkezi", ""));
+                  c.addView(merkeziField);
+                  root.addView(c);
+
+                  LinearLayout sigCard = card();
+                  sigCard.addView(section("Personel İmzası"));
+                  boolean hasSig = hasSignature("_puantaj_sahibi");
+                  sigCard.addView(text(hasSig ? "İmza kayıtlı ✓" : "Henüz imza eklenmedi", 13,
+                          hasSig ? NEON_GREEN : TEXT_MUTED, true));
+                  Button sigBtn = choice(hasSig ? "İmzayı Değiştir" : "İmza Ekle");
+                  sigCard.addView(sigBtn);
+                  sigBtn.setOnClickListener(v -> pickSignatureFor("_puantaj_sahibi"));
+                  root.addView(sigCard);
+
+                  Button save = actionSuccess("✓  Kaydet");
+                  root.addView(save);
+                  save.setOnClickListener(v -> {
+                      prefs.edit()
+                              .putString("owner_sicil_no", value(sicilField))
+                              .putString("owner_ad_soyad", value(adField))
+                              .putString("owner_gorevi", value(goreviField))
+                              .putString("owner_merkezi", value(merkeziField))
+                              .apply();
+                      Toast.makeText(this, "Puantaj sahibi bilgileri kaydedildi.", Toast.LENGTH_SHORT).show();
+                      settings();
+                  });
+
+                  Button back = action("Vazgeç", false);
+                  root.addView(back);
+                  back.setOnClickListener(v -> settings());
+              }
+
+              // Hazır isim listesindeki her kişiye ayrı imza görseli atama.
+              // Excel oluşturulurken teslim/tesellüm sahibi bu isimse, kayıtlı
+              // imza otomatik olarak ilgili hücreye yerleştirilecek.
+              void settingsPeopleSignatures() {
+                  currentPage = "settingsPeopleSignatures";
+                  page("Kişiler ve İmzalar", "Her kişiye kayıtlı imza, Excel'de o kişinin teslim/tesellüm hücresine otomatik eklenir.");
+
+                  ArrayList<String> people = ownerList();
+                  if (people.isEmpty()) {
+                      LinearLayout empty = card();
+                      empty.addView(text("Hazır isim listesi boş.", 16, TEXT_PRIMARY, true));
+                      empty.addView(text("Önce Ayarlar → Hazır İsim Listesi'nden isim ekle.", 13, TEXT_MUTED, false));
+                      root.addView(empty);
+                  }
+
+                  for (String person : people) {
+                      LinearLayout row = card();
+                      row.addView(text(person, 16, TEXT_PRIMARY, true));
+                      boolean hasSig = hasSignature(person);
+                      row.addView(text(hasSig ? "İmza kayıtlı ✓" : "İmza kayıtlı değil", 13,
+                              hasSig ? NEON_GREEN : TEXT_MUTED, false));
+                      Button sigBtn = choice(hasSig ? "İmzayı Değiştir" : "İmza Ekle");
+                      row.addView(sigBtn);
+                      sigBtn.setOnClickListener(v -> pickSignatureFor(person));
+                      root.addView(row);
+                  }
+
+                  Button back = action("Ayarlara Dön", false);
+                  root.addView(back);
+                  back.setOnClickListener(v -> settings());
               }
 
               // "Tren Varsayılanları" artık Ayarlar'ın içinde değil, ayrı bir alt sayfa —
@@ -2609,11 +2784,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.7.4.apk"
-          test -s "$GITHUB_WORKSPACE/4011-Model-v0.7.4.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.8.0.apk"
+          test -s "$GITHUB_WORKSPACE/4011-Model-v0.8.0.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v6
         with:
-          name: 4011-Model-v0.7.4
-          path: ${{ github.workspace }}/4011-Model-v0.7.4.apk
+          name: 4011-Model-v0.8.0
+          path: ${{ github.workspace }}/4011-Model-v0.8.0.apk
