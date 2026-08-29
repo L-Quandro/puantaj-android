@@ -1,4 +1,4 @@
-name: 4011 Model APK v0.8.0
+name: 4011 Model APK v0.8.1
 
 on:
   push:
@@ -67,8 +67,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 41
-                  versionName '0.8.0'
+                  versionCode 42
+                  versionName '0.8.1'
               }
           }
           dependencies {
@@ -470,6 +470,11 @@ jobs:
               // için klasik startActivityForResult/onActivityResult yöntemi kullanıldı.
               static final int REQUEST_PICK_SIGNATURE = 4011;
               String pendingSignatureTarget = "";
+              // İmza kaydedildikten sonra TÜM ekranı yeniden kurmak yerine (bu,
+              // henüz "Kaydet"e basılmamış EditText içeriğini SharedPreferences'tan
+              // yeniden okuyup sıfırlardı), sadece ilgili durum metnini/butonunu
+              // yerinde güncelleyen hafif bir geri çağırma burada tutuluyor.
+              java.util.HashMap<String, Runnable> signatureRefreshCallbacks = new java.util.HashMap<>();
 
               String sanitizeSignatureName(String name) {
                   if (name == null || name.trim().isEmpty()) return "_";
@@ -525,11 +530,8 @@ jobs:
                       saved = false;
                   }
                   Toast.makeText(this, saved ? "İmza kaydedildi." : "İmza kaydedilemedi.", Toast.LENGTH_SHORT).show();
-                  if ("_puantaj_sahibi".equals(target)) {
-                      settingsPersonnelInfo();
-                  } else if (!target.isEmpty()) {
-                      settingsPeopleSignatures();
-                  }
+                  Runnable refresh = signatureRefreshCallbacks.get(target);
+                  if (refresh != null) refresh.run();
               }
 
               void navigateBack() {
@@ -541,7 +543,8 @@ jobs:
                       pendingBack.run();
                   } else if ("continue".equals(currentPage)) {
                       confirmExitContinue();
-                  } else if ("trainDefaults".equals(currentPage) || "peopleList".equals(currentPage)) {
+                  } else if ("trainDefaults".equals(currentPage) || "peopleList".equals(currentPage)
+                          || "settingsPersonnelInfo".equals(currentPage) || "settingsPeopleSignatures".equals(currentPage)) {
                       settings();
                   } else {
                       home();
@@ -1908,6 +1911,7 @@ jobs:
               void settingsPersonnelInfo() {
                   currentPage = "settingsPersonnelInfo";
                   page("Puantaj Sahibi Bilgileri", "Bir kez gir; oluşturulan tüm Excel çıktılarında bu bilgiler sabit kullanılır.");
+                  signatureRefreshCallbacks.clear();
 
                   LinearLayout c = card();
                   TextInputLayout sicilField = field("Sicil No");
@@ -1930,12 +1934,20 @@ jobs:
                   LinearLayout sigCard = card();
                   sigCard.addView(section("Personel İmzası"));
                   boolean hasSig = hasSignature("_puantaj_sahibi");
-                  sigCard.addView(text(hasSig ? "İmza kayıtlı ✓" : "Henüz imza eklenmedi", 13,
-                          hasSig ? NEON_GREEN : TEXT_MUTED, true));
+                  TextView sigStatus = text(hasSig ? "İmza kayıtlı ✓" : "Henüz imza eklenmedi", 13,
+                          hasSig ? NEON_GREEN : TEXT_MUTED, true);
+                  sigCard.addView(sigStatus);
                   Button sigBtn = choice(hasSig ? "İmzayı Değiştir" : "İmza Ekle");
                   sigCard.addView(sigBtn);
                   sigBtn.setOnClickListener(v -> pickSignatureFor("_puantaj_sahibi"));
                   root.addView(sigCard);
+
+                  signatureRefreshCallbacks.put("_puantaj_sahibi", () -> {
+                      boolean nowHasSig = hasSignature("_puantaj_sahibi");
+                      sigStatus.setText(nowHasSig ? "İmza kayıtlı ✓" : "Henüz imza eklenmedi");
+                      sigStatus.setTextColor(nowHasSig ? NEON_GREEN : TEXT_MUTED);
+                      sigBtn.setText(nowHasSig ? "İmzayı Değiştir" : "İmza Ekle");
+                  });
 
                   Button save = actionSuccess("✓  Kaydet");
                   root.addView(save);
@@ -1961,6 +1973,7 @@ jobs:
               void settingsPeopleSignatures() {
                   currentPage = "settingsPeopleSignatures";
                   page("Kişiler ve İmzalar", "Her kişiye kayıtlı imza, Excel'de o kişinin teslim/tesellüm hücresine otomatik eklenir.");
+                  signatureRefreshCallbacks.clear();
 
                   ArrayList<String> people = ownerList();
                   if (people.isEmpty()) {
@@ -1974,12 +1987,20 @@ jobs:
                       LinearLayout row = card();
                       row.addView(text(person, 16, TEXT_PRIMARY, true));
                       boolean hasSig = hasSignature(person);
-                      row.addView(text(hasSig ? "İmza kayıtlı ✓" : "İmza kayıtlı değil", 13,
-                              hasSig ? NEON_GREEN : TEXT_MUTED, false));
+                      TextView statusText = text(hasSig ? "İmza kayıtlı ✓" : "İmza kayıtlı değil", 13,
+                              hasSig ? NEON_GREEN : TEXT_MUTED, false);
+                      row.addView(statusText);
                       Button sigBtn = choice(hasSig ? "İmzayı Değiştir" : "İmza Ekle");
                       row.addView(sigBtn);
                       sigBtn.setOnClickListener(v -> pickSignatureFor(person));
                       root.addView(row);
+
+                      signatureRefreshCallbacks.put(person, () -> {
+                          boolean nowHasSig = hasSignature(person);
+                          statusText.setText(nowHasSig ? "İmza kayıtlı ✓" : "İmza kayıtlı değil");
+                          statusText.setTextColor(nowHasSig ? NEON_GREEN : TEXT_MUTED);
+                          sigBtn.setText(nowHasSig ? "İmzayı Değiştir" : "İmza Ekle");
+                      });
                   }
 
                   Button back = action("Ayarlara Dön", false);
@@ -2784,11 +2805,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.8.0.apk"
-          test -s "$GITHUB_WORKSPACE/4011-Model-v0.8.0.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.8.1.apk"
+          test -s "$GITHUB_WORKSPACE/4011-Model-v0.8.1.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v6
         with:
-          name: 4011-Model-v0.8.0
-          path: ${{ github.workspace }}/4011-Model-v0.8.0.apk
+          name: 4011-Model-v0.8.1
+          path: ${{ github.workspace }}/4011-Model-v0.8.1.apk
