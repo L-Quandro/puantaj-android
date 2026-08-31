@@ -1,4 +1,4 @@
-name: 4011 Model APK v0.9.1
+name: 4011 Model APK v0.9.2
 
 on:
   push:
@@ -69,8 +69,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 44
-                  versionName '0.9.1'
+                  versionCode 45
+                  versionName '0.9.2'
               }
           }
           dependencies {
@@ -285,10 +285,19 @@ jobs:
               // 2 satırlık yüksekliği kaplayacak şekilde yazar (anchorRef:companionRef
               // birleştirilir). Böylece dikey ortalama, başlığın dikey ortasıyla birebir
               // eşleşir — satır yükseklikleri hiç değişmeden.
-              String excelSetPersonnelValue(String sheetXml, String anchorRef, String companionRef, String text, int style) {
+              // Uygulamadan gelen bir personel bilgisini yazar ve karşısındaki hazır
+              // başlıkla AYNI 2 satırlık yüksekliği kaplayacak şekilde birleştirir —
+              // dikey ortalama böylece başlığın dikey ortasıyla birebir eşleşir.
+              // mergeRangeEnd, 28pt metnin tamamının sığması için yeterli GENİŞLİKTEKİ
+              // birleşimin sağ-alt köşesidir (örn. "X13") — tek sütun 28pt'te sadece
+              // ~4 karakter aldığından ("Tren Makinisti" kırpılması buradan geliyordu),
+              // birleşim çapa sütunundan başlayıp birden çok sütunu kapsar. Birleşimdeki
+              // diğer hücrelere hiç dokunulmuyor — Excel bir birleşimi görüntülerken
+              // yalnızca çapa (sol-üst) hücrenin içeriğini ve stilini kullanır; ayrıca
+              // hücre eklemek gerekmiyor ve şablonun başka hiçbir yerine dokunmuyor.
+              String excelSetPersonnelValue(String sheetXml, String anchorRef, String mergeRangeEnd, String text, int style) {
                   String result = excelSetCell(sheetXml, anchorRef, text, style);
-                  result = excelSetCell(result, companionRef, "", style);
-                  result = excelAddMerge(result, anchorRef + ":" + companionRef);
+                  result = excelAddMerge(result, anchorRef + ":" + mergeRangeEnd);
                   return result;
               }
 
@@ -1154,10 +1163,10 @@ jobs:
                   sheet2 = excelSetCell(sheet2, "R7", EXCEL_AY_ADLARI[monthIndex0] + " " + year + " Ayına Ait", -1);
 
                   int bigValueStyle = patcher.getOrCreateBigValueStyle();
-                  sheet2 = excelSetPersonnelValue(sheet2, "T12", "T13", prefs.getString("owner_sicil_no", ""), bigValueStyle);
-                  sheet2 = excelSetPersonnelValue(sheet2, "T15", "T16", prefs.getString("owner_ad_soyad", ""), bigValueStyle);
-                  sheet2 = excelSetPersonnelValue(sheet2, "T18", "T19", prefs.getString("owner_gorevi", ""), bigValueStyle);
-                  sheet2 = excelSetPersonnelValue(sheet2, "T21", "T22", prefs.getString("owner_merkezi", ""), bigValueStyle);
+                  sheet2 = excelSetPersonnelValue(sheet2, "T12", "X13", prefs.getString("owner_sicil_no", ""), bigValueStyle);
+                  sheet2 = excelSetPersonnelValue(sheet2, "T15", "X16", prefs.getString("owner_ad_soyad", ""), bigValueStyle);
+                  sheet2 = excelSetPersonnelValue(sheet2, "T18", "X19", prefs.getString("owner_gorevi", ""), bigValueStyle);
+                  sheet2 = excelSetPersonnelValue(sheet2, "T21", "X22", prefs.getString("owner_merkezi", ""), bigValueStyle);
 
                   styles = patcher.build();
                   contents.put("xl/worksheets/sheet1.xml", sheet1.getBytes("UTF-8"));
@@ -4105,11 +4114,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.9.1.apk"
-          test -s "$GITHUB_WORKSPACE/4011-Model-v0.9.1.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.9.2.apk"
+          test -s "$GITHUB_WORKSPACE/4011-Model-v0.9.2.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v6
         with:
-          name: 4011-Model-v0.9.1
-          path: ${{ github.workspace }}/4011-Model-v0.9.1.apk
+          name: 4011-Model-v0.9.2
+          path: ${{ github.workspace }}/4011-Model-v0.9.2.apk
