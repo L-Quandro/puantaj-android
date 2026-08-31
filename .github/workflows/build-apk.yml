@@ -1,4 +1,4 @@
-name: 4011 Model APK v0.9.0
+name: 4011 Model APK v0.9.1
 
 on:
   push:
@@ -69,8 +69,8 @@ jobs:
                   applicationId 'com.furkan.puantaj'
                   minSdk 26
                   targetSdk 35
-                  versionCode 43
-                  versionName '0.9.0'
+                  versionCode 44
+                  versionName '0.9.1'
               }
           }
           dependencies {
@@ -270,6 +270,28 @@ jobs:
                   return sheetXml.substring(0, rowM.start()) + newRowXml + sheetXml.substring(rowM.end());
               }
 
+              // Mevcut birleşimlere hiç dokunmadan, listeye yeni bir birleşim ekler.
+              String excelAddMerge(String sheetXml, String ref) {
+                  Matcher m = Pattern.compile("<mergeCells count=\"(\\d+)\">").matcher(sheetXml);
+                  if (!m.find()) throw new IllegalStateException("mergeCells bulunamadı");
+                  int newCount = Integer.parseInt(m.group(1)) + 1;
+                  String result = sheetXml.substring(0, m.start()) + "<mergeCells count=\"" + newCount + "\">"
+                          + sheetXml.substring(m.end());
+                  int insertAt = result.indexOf("</mergeCells>");
+                  return result.substring(0, insertAt) + "<mergeCell ref=\"" + ref + "\"/>" + result.substring(insertAt);
+              }
+
+              // Uygulamadan gelen bir personel bilgisini, karşısındaki hazır başlıkla AYNI
+              // 2 satırlık yüksekliği kaplayacak şekilde yazar (anchorRef:companionRef
+              // birleştirilir). Böylece dikey ortalama, başlığın dikey ortasıyla birebir
+              // eşleşir — satır yükseklikleri hiç değişmeden.
+              String excelSetPersonnelValue(String sheetXml, String anchorRef, String companionRef, String text, int style) {
+                  String result = excelSetCell(sheetXml, anchorRef, text, style);
+                  result = excelSetCell(result, companionRef, "", style);
+                  result = excelAddMerge(result, anchorRef + ":" + companionRef);
+                  return result;
+              }
+
               int[] excelStyleCounts(String stylesXml) {
                   Matcher fm = Pattern.compile("<fonts count=\"(\\d+)\"").matcher(stylesXml);
                   fm.find();
@@ -303,6 +325,27 @@ jobs:
                   ArrayList<String> newFonts = new ArrayList<>();
                   ArrayList<String> newXfs = new ArrayList<>();
                   HashMap<Integer, Integer> redVariantCache = new HashMap<>();
+                  Integer bigValueStyleCache = null;
+
+                  // Uygulamadan gelen personel bilgileri için tek, sabit bir stil:
+                  // 28pt, aynı yazı tipi ailesi (Calibri), dikey ortalanmış. Hazır
+                  // şablon başlıklarının fontuna KESİNLİKLE dokunmaz — bu tamamen
+                  // yeni, ayrı bir stildir. 4 alan için de aynı stil kullanıldığından
+                  // yalnızca ilk çağrıda oluşturulur, sonrakiler önbellekten döner.
+                  int getOrCreateBigValueStyle() {
+                      if (bigValueStyleCache != null) return bigValueStyleCache;
+                      String newFont = "<font><sz val=\"28\"/><color theme=\"1\"/><name val=\"Calibri\"/><family val=\"2\"/><scheme val=\"minor\"/></font>";
+                      int newFontIndex = fontCount + newFonts.size();
+                      newFonts.add(newFont);
+
+                      String newXf = "<xf numFmtId=\"0\" fontId=\"" + newFontIndex + "\" fillId=\"0\" borderId=\"0\" xfId=\"0\""
+                              + " applyFont=\"1\" applyAlignment=\"1\"><alignment horizontal=\"left\" vertical=\"center\"/></xf>";
+                      int newXfIndex = xfCount + newXfs.size();
+                      newXfs.add(newXf);
+
+                      bigValueStyleCache = newXfIndex;
+                      return newXfIndex;
+                  }
 
                   ExcelStylePatcher(String stylesXml) {
                       original = stylesXml;
@@ -1109,10 +1152,12 @@ jobs:
                   }
 
                   sheet2 = excelSetCell(sheet2, "R7", EXCEL_AY_ADLARI[monthIndex0] + " " + year + " Ayına Ait", -1);
-                  sheet2 = excelSetCell(sheet2, "T12", prefs.getString("owner_sicil_no", ""), -1);
-                  sheet2 = excelSetCell(sheet2, "T15", prefs.getString("owner_ad_soyad", ""), -1);
-                  sheet2 = excelSetCell(sheet2, "T18", prefs.getString("owner_gorevi", ""), -1);
-                  sheet2 = excelSetCell(sheet2, "T21", prefs.getString("owner_merkezi", ""), -1);
+
+                  int bigValueStyle = patcher.getOrCreateBigValueStyle();
+                  sheet2 = excelSetPersonnelValue(sheet2, "T12", "T13", prefs.getString("owner_sicil_no", ""), bigValueStyle);
+                  sheet2 = excelSetPersonnelValue(sheet2, "T15", "T16", prefs.getString("owner_ad_soyad", ""), bigValueStyle);
+                  sheet2 = excelSetPersonnelValue(sheet2, "T18", "T19", prefs.getString("owner_gorevi", ""), bigValueStyle);
+                  sheet2 = excelSetPersonnelValue(sheet2, "T21", "T22", prefs.getString("owner_merkezi", ""), bigValueStyle);
 
                   styles = patcher.build();
                   contents.put("xl/worksheets/sheet1.xml", sheet1.getBytes("UTF-8"));
@@ -4060,11 +4105,11 @@ jobs:
 
           cd puantaj
           gradle assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.9.0.apk"
-          test -s "$GITHUB_WORKSPACE/4011-Model-v0.9.0.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/4011-Model-v0.9.1.apk"
+          test -s "$GITHUB_WORKSPACE/4011-Model-v0.9.1.apk"
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v6
         with:
-          name: 4011-Model-v0.9.0
-          path: ${{ github.workspace }}/4011-Model-v0.9.0.apk
+          name: 4011-Model-v0.9.1
+          path: ${{ github.workspace }}/4011-Model-v0.9.1.apk
