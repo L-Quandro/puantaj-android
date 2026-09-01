@@ -167,6 +167,10 @@ jobs:
           import android.graphics.Color;
           import android.graphics.Typeface;
           import android.graphics.drawable.GradientDrawable;
+          import android.graphics.Bitmap;
+          import android.graphics.BitmapFactory;
+          import android.graphics.Canvas;
+          import android.graphics.Rect;
           import android.graphics.LinearGradient;
           import android.graphics.Shader;
           import android.net.Uri;
@@ -725,6 +729,190 @@ jobs:
                   return signatureFile(target).exists();
               }
 
+// ===== İMZA GÖRSEL İŞLEME =====
+
+private void processSignature(String target, Uri uri) {
+    try {
+        // Görseli decode et
+        Bitmap original = BitmapFactory.decodeStream(getContentResolver().openInputStream(uri));
+        if (original == null) {
+            Toast.makeText(this, "Görsel okunamadı.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Arka plan rengini tahmin et (kenarlardan)
+        int bgColor = estimateBackgroundColor(original);
+
+        // Yeni ARGB bitmap oluştur
+        Bitmap processed = Bitmap.createBitmap(original.getWidth(), original.getHeight(), Bitmap.Config.ARGB_8888);
+
+        // Her pikselin alpha değerini hesapla (kâğıttan uzaklık)
+        int[] pixels = new int[original.getWidth() * original.getHeight()];
+        original.getPixels(pixels, 0, original.getWidth(), 0, 0, original.getWidth(), original.getHeight());
+        int bgR = Color.red(bgColor);
+        int bgG = Color.green(bgColor);
+        int bgB = Color.blue(bgColor);
+
+        for (int i = 0; i < pixels.length; i++) {
+            int p = pixels[i];
+            int r = Color.red(p);
+            int g = Color.green(p);
+            int b = Color.blue(p);
+            // Renk mesafesi (Euclidean)
+            double dist = Math.sqrt(Math.pow(r - bgR, 2) + Math.pow(g - bgG, 2) + Math.pow(b - bgB, 2));
+            // Mesafe arttıkça alpha artar (anti-aliasing korunur)
+            int alpha = (int) Math.min(255, dist * 3);
+            if (alpha < 0) alpha = 0;
+            pixels[i] = Color.argb(alpha, r, g, b);
+        }
+        processed.setPixels(pixels, 0, original.getWidth(), 0, 0, original.getWidth(), original.getHeight());
+
+        // Kırp
+        Bitmap cropped = cropToBoundingBox(processed);
+
+        // Önizleme göster
+        showSignaturePreview(target, cropped);
+
+    } catch (Exception e) {
+        Toast.makeText(this, "İmza işlenemedi: " + e.getMessage(), Toast.LENGTH_LONG).show();
+    }
+}
+
+// Kenarlardan ortalama kâğıt rengini tahmin et
+private int estimateBackgroundColor(Bitmap bitmap) {
+    int width = bitmap.getWidth();
+    int height = bitmap.getHeight();
+    int sampleStep = Math.max(1, Math.min(width, height) / 20);
+    long sumR = 0, sumG = 0, sumB = 0;
+    int count = 0;
+
+    // Üst kenar
+    for (int x = 0; x < width; x += sampleStep) {
+        int p = bitmap.getPixel(x, 0);
+        sumR += Color.red(p);
+        sumG += Color.green(p);
+        sumB += Color.blue(p);
+        count++;
+    }
+    // Alt kenar
+    for (int x = 0; x < width; x += sampleStep) {
+        int p = bitmap.getPixel(x, height - 1);
+        sumR += Color.red(p);
+        sumG += Color.green(p);
+        sumB += Color.blue(p);
+        count++;
+    }
+    // Sol kenar
+    for (int y = 0; y < height; y += sampleStep) {
+        int p = bitmap.getPixel(0, y);
+        sumR += Color.red(p);
+        sumG += Color.green(p);
+        sumB += Color.blue(p);
+        count++;
+    }
+    // Sağ kenar
+    for (int y = 0; y < height; y += sampleStep) {
+        int p = bitmap.getPixel(width - 1, y);
+        sumR += Color.red(p);
+        sumG += Color.green(p);
+        sumB += Color.blue(p);
+        count++;
+    }
+
+    if (count == 0) count = 1;
+    return Color.rgb((int)(sumR / count), (int)(sumG / count), (int)(sumB / count));
+}
+
+// Şeffaf olmayan piksellerin sınırlarına göre kırp
+private Bitmap cropToBoundingBox(Bitmap bitmap) {
+    int left = bitmap.getWidth(), top = bitmap.getHeight(), right = 0, bottom = 0;
+    int[] rowPixels = new int[bitmap.getWidth()];
+
+    for (int y = 0; y < bitmap.getHeight(); y++) {
+        bitmap.getPixels(rowPixels, 0, bitmap.getWidth(), 0, y, bitmap.getWidth(), 1);
+        for (int x = 0; x < bitmap.getWidth(); x++) {
+            int alpha = Color.alpha(rowPixels[x]);
+            if (alpha > 10) {
+                if (x < left) left = x;
+                if (x > right) right = x;
+                if (y < top) top = y;
+                if (y > bottom) bottom = y;
+            }
+        }
+    }
+
+    if (right < left) right = left;
+    if (bottom < top) bottom = top;
+
+    // Güvenli boşluk (padding)
+    int pad = 5;
+    left = Math.max(0, left - pad);
+    top = Math.max(0, top - pad);
+    right = Math.min(bitmap.getWidth() - 1, right + pad);
+    bottom = Math.min(bitmap.getHeight() - 1, bottom + pad);
+
+    int width = right - left + 1;
+    int height = bottom - top + 1;
+
+    Bitmap cropped = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+    Canvas canvas = new Canvas(cropped);
+    canvas.drawBitmap(bitmap, new Rect(left, top, right + 1, bottom + 1), new Rect(0, 0, width, height), null);
+    return cropped;
+}
+
+// Önizleme dialogu göster
+private void showSignaturePreview(final String target, final Bitmap bitmap) {
+    // Checkerboard arka planlı basit önizleme (gri-beyaz kareler)
+    LinearLayout layout = new LinearLayout(this);
+    layout.setOrientation(LinearLayout.VERTICAL);
+    layout.setPadding(dp(20), dp(10), dp(20), dp(10));
+
+    ImageView imageView = new ImageView(this);
+    imageView.setImageBitmap(bitmap);
+    // Şeffaflığı göstermek için checkerboard deseni (basitçe gri-beyaz çizgili arka plan)
+    imageView.setBackgroundColor(Color.LTGRAY);
+    imageView.setAdjustViewBounds(true);
+    imageView.setMaxHeight(dp(300));
+    layout.addView(imageView);
+
+    final AlertDialog dialog = new AlertDialog.Builder(this)
+            .setTitle("İmza Önizleme")
+            .setView(layout)
+            .setNegativeButton("Yeniden Seç", null)
+            .setPositiveButton("Kaydet", null)
+            .create();
+
+    dialog.setOnShowListener(new DialogInterface.OnShowListener() {
+        @Override
+        public void onShow(DialogInterface d) {
+            Button neg = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+            Button pos = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            neg.setOnClickListener(v -> {
+                dialog.dismiss();
+                pickSignatureFor(target); // yeniden seçim
+            });
+            pos.setOnClickListener(v -> {
+                saveSignatureBitmap(target, bitmap);
+                dialog.dismiss();
+                // İmza kaydedildiği için ekranı güncelle
+                Runnable refresh = signatureRefreshCallbacks.get(target);
+                if (refresh != null) refresh.run();
+            });
+        }
+    });
+    dialog.show();
+}
+
+// İşlenmiş bitmap'i PNG olarak kaydet
+private void saveSignatureBitmap(String target, Bitmap bitmap) {
+    File file = signatureFile(target);
+    try (FileOutputStream out = new FileOutputStream(file)) {
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+        Toast.makeText(this, "İmza kaydedildi.", Toast.LENGTH_SHORT).show();
+    } catch (Exception e) {
+        Toast.makeText(this, "İmza kaydedilemedi: " + e.getMessage(), Toast.LENGTH_LONG).show();
+    }
+}
               void pickSignatureFor(String target) {
                   pendingSignatureTarget = target;
                   Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
@@ -736,33 +924,19 @@ jobs:
                   }
               }
 
-              @Override
-              protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-                  super.onActivityResult(requestCode, resultCode, data);
-                  if (requestCode != REQUEST_PICK_SIGNATURE) return;
-                  if (resultCode != RESULT_OK || data == null || data.getData() == null) {
-                      pendingSignatureTarget = "";
-                      return;
-                  }
-                  Uri uri = data.getData();
-                  String target = pendingSignatureTarget;
-                  pendingSignatureTarget = "";
-                  boolean saved = false;
-                  try (InputStream in = getContentResolver().openInputStream(uri);
-                       FileOutputStream out = new FileOutputStream(signatureFile(target))) {
-                      if (in != null) {
-                          byte[] buf = new byte[4096];
-                          int len;
-                          while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
-                          saved = true;
-                      }
-                  } catch (Exception e) {
-                      saved = false;
-                  }
-                  Toast.makeText(this, saved ? "İmza kaydedildi." : "İmza kaydedilemedi.", Toast.LENGTH_SHORT).show();
-                  Runnable refresh = signatureRefreshCallbacks.get(target);
-                  if (refresh != null) refresh.run();
-              }
+@Override
+protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+    super.onActivityResult(requestCode, resultCode, data);
+    if (requestCode != REQUEST_PICK_SIGNATURE) return;
+    if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+        pendingSignatureTarget = "";
+        return;
+    }
+    Uri uri = data.getData();
+    String target = pendingSignatureTarget;
+    pendingSignatureTarget = "";
+    processSignature(target, uri);
+}
 
               void navigateBack() {
                   if ("home".equals(currentPage)) {
